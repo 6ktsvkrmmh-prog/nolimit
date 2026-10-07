@@ -89,10 +89,14 @@
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
   <div id="modal" class="modal" hidden>
-    <div class="modal-box">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <h2 id="modal-title"></h2>
       <p id="modal-text"></p>
-      <button id="modal-close" class="btn">Weiter</button>
+      <textarea id="modal-input" class="modal-input" rows="4" spellcheck="false" hidden></textarea>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn" hidden>Abbrechen</button>
+        <button id="modal-ok" class="btn btn-primary">Weiter</button>
+      </div>
     </div>
   </div>
 

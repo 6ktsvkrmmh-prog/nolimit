@@ -276,11 +276,18 @@ function pendingInsights() {
   return Math.floor(Math.sqrt(state.runEarned / PRESTIGE_BASE));
 }
 
-function prestige() {
-  const gain = pendingInsights();
-  if (gain < 1) return;
-  const ok = confirm(`Kontext komprimieren?\n\nDu verlierst Tokens, Generatoren und Upgrades, erhältst aber ${gain} Erkenntnis(se) (+${gain * 10} % Produktion, dauerhaft).`);
+async function prestige() {
+  const offered = pendingInsights();
+  if (offered < 1) return;
+  const ok = await showDialog({
+    title: 'Kontext komprimieren?',
+    text: `Du verlierst Tokens, Generatoren und Upgrades, erhältst aber ${offered} Erkenntnis(se) (+${offered * 10} % Produktion, dauerhaft).`,
+    ok: 'Komprimieren',
+    cancel: 'Abbrechen',
+  });
   if (!ok) return;
+  // Während der Dialog offen war, lief die Produktion weiter.
+  const gain = pendingInsights();
   const fresh = freshState();
   Object.assign(state, {
     tokens: 0,
@@ -365,7 +372,11 @@ function startLimitTimer() {
   target.setHours(h, m, 0, 0);
   if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
   state.limitReset = target.getTime();
-  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  try {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+  } catch {
+    // Benachrichtigungen nicht erlaubt – das Banner reicht.
+  }
   save();
   renderLimit();
 }
@@ -381,8 +392,12 @@ function updateLimit(now) {
     state.limitReset = null;
     state.limitsSurvived++;
     $('limit-banner').hidden = false;
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('No Limit', { body: 'Dein Claude-Limit ist zurück! 🎉' });
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('No Limit', { body: 'Dein Claude-Limit ist zurück! 🎉' });
+      }
+    } catch {
+      // Benachrichtigungen nicht verfügbar – das Banner reicht.
     }
     save();
   }
@@ -553,10 +568,38 @@ function toast(html) {
   setTimeout(() => el.remove(), 4500);
 }
 
-function showModal(title, text) {
-  $('modal-title').textContent = title;
-  $('modal-text').textContent = text;
-  $('modal').hidden = false;
+// Eigener Dialog statt alert/confirm/prompt (die sind z. B. in eingebetteten Seiten blockiert).
+// Ergebnis: true bzw. der eingegebene Text bei OK, false bzw. null bei Abbrechen.
+function showDialog({ title, text, ok = 'Weiter', cancel = null, input = null }) {
+  return new Promise(resolve => {
+    const field = $('modal-input');
+    $('modal-title').textContent = title;
+    $('modal-text').textContent = text;
+    $('modal-ok').textContent = ok;
+    $('modal-cancel').textContent = cancel || '';
+    $('modal-cancel').hidden = cancel === null;
+    field.hidden = input === null;
+    if (input) {
+      field.value = input.value || '';
+      field.readOnly = Boolean(input.readOnly);
+      field.placeholder = input.placeholder || '';
+    }
+    $('modal').hidden = false;
+    if (input) {
+      field.focus();
+      field.select();
+    } else {
+      $('modal-ok').focus();
+    }
+    const close = result => {
+      $('modal').hidden = true;
+      $('modal-ok').onclick = null;
+      $('modal-cancel').onclick = null;
+      resolve(result);
+    };
+    $('modal-ok').onclick = () => close(input ? field.value : true);
+    $('modal-cancel').onclick = () => close(input ? null : false);
+  });
 }
 
 let tickerIndex = Math.floor(Math.random() * TICKER.length);
@@ -569,15 +612,29 @@ function rotateTicker() {
 
 function exportSave() {
   const code = btoa(unescape(encodeURIComponent(JSON.stringify(toSaveData()))));
-  navigator.clipboard?.writeText(code).then(
-    () => toast('📋 Spielstand in die Zwischenablage kopiert.'),
-    () => {},
-  );
-  prompt('Dein Spielstand (kopieren und sicher aufbewahren):', code);
+  try {
+    navigator.clipboard.writeText(code).then(
+      () => toast('📋 Spielstand in die Zwischenablage kopiert.'),
+      () => {},
+    );
+  } catch {
+    // Kein Zugriff auf die Zwischenablage – der Code steht im Dialog zum Kopieren.
+  }
+  showDialog({
+    title: 'Spielstand exportieren',
+    text: 'Kopiere diesen Code und bewahre ihn auf. Mit „Importieren“ holst du deinen Spielstand zurück.',
+    input: { value: code, readOnly: true },
+  });
 }
 
-function importSave() {
-  const code = prompt('Spielstand einfügen:');
+async function importSave() {
+  const code = await showDialog({
+    title: 'Spielstand importieren',
+    text: 'Füge deinen exportierten Spielstand-Code ein. Der aktuelle Spielstand wird überschrieben.',
+    ok: 'Importieren',
+    cancel: 'Abbrechen',
+    input: { placeholder: 'Code hier einfügen' },
+  });
   if (!code) return;
   try {
     state = fromSaveData(JSON.parse(decodeURIComponent(escape(atob(code.trim())))));
@@ -593,8 +650,14 @@ function importSave() {
   }
 }
 
-function hardReset() {
-  if (!confirm('Wirklich ALLES löschen? Das kann nicht rückgängig gemacht werden.')) return;
+async function hardReset() {
+  const ok = await showDialog({
+    title: 'Alles löschen?',
+    text: 'Dein gesamter Fortschritt inklusive Erkenntnissen und Erfolgen wird gelöscht. Das lässt sich nicht rückgängig machen.',
+    ok: 'Alles löschen',
+    cancel: 'Abbrechen',
+  });
+  if (!ok) return;
   state = freshState();
   mods = computeMods();
   upgradesKey = '';
@@ -629,7 +692,7 @@ function applyOfflineProgress() {
   const gain = baseTps() * away;
   if (away > 10 && gain > 0) {
     earn(gain);
-    showModal('Willkommen zurück!', `Während du weg warst (${fmtDuration(away * 1000)}), haben deine Generatoren ${fmt(gain)} Tokens produziert.`);
+    showDialog({ title: 'Willkommen zurück!', text: `Während du weg warst (${fmtDuration(away * 1000)}), haben deine Generatoren ${fmt(gain)} Tokens produziert.` });
   }
 }
 
@@ -643,7 +706,6 @@ function init() {
   $('limit-set').addEventListener('click', startLimitTimer);
   $('limit-clear').addEventListener('click', clearLimitTimer);
   $('banner-close').addEventListener('click', () => { $('limit-banner').hidden = true; });
-  $('modal-close').addEventListener('click', () => { $('modal').hidden = true; });
   $('export-btn').addEventListener('click', exportSave);
   $('import-btn').addEventListener('click', importSave);
   $('reset-btn').addEventListener('click', hardReset);
