@@ -87,12 +87,14 @@
       </div>
 
       <div id="arena" class="arena">
+        <div class="arena-bg" aria-hidden="true"><span></span><span></span></div>
         <button id="enemy" class="enemy" aria-label="KI angreifen">
           <span class="glyph-float"><span id="glyph" class="glyph"></span></span>
           <span id="weakspot" class="weakspot" aria-hidden="true"></span>
           <span class="weakspot fake" aria-hidden="true" hidden></span>
           <span class="weakspot fake" aria-hidden="true" hidden></span>
         </button>
+        <div id="fx" class="fx-layer" aria-hidden="true"></div>
         <div id="popups" class="popups"></div>
         <div id="attacks" class="attacks"></div>
         <div id="series" class="series-layer"></div>
@@ -269,7 +271,7 @@
             <li>Mit kritischen Treffern leuchtet ein Punkt auf jeder KI. Triffst du ihn, ist es ein kritischer Treffer.</li>
             <li>Schnell hintereinander tippen baut eine Combo auf, die deinen Schaden erhöht.</li>
             <li>Treffer auf den Punkt in Folge bilden eine Krit-Kette: Jedes Glied gibt +25 % Krit-Schaden. Die ersten 20 bis 30 Glieder sind entspannt, danach schrumpft das Zeitfenster, der Punkt wird kleiner und wandert immer schneller. Ein Fehltipp lässt die Kette reißen.</li>
-            <li>Flow-Serien: Ab und zu, oft mitten in der Krit-Kette, erscheinen 2 bis 5 nummerierte Kreise. Tippe sie im Takt an, bevor sich ihr Ring schließt – genau beim Schließen ist es perfekt. Bei Bögen hältst du gedrückt und folgst der Kugel bis zum Ende. Jeder Kreis zählt als Glied der Krit-Kette, die ganze Serie gibt einen Bonusschlag.</li>
+            <li>Flow-Serien: Ab und zu, oft mitten in der Krit-Kette, erscheinen 2 bis 5 nummerierte Kreise. Tippe sie im Takt an, bevor sich ihr Ring schließt – genau beim Schließen ist es perfekt. Bei Bögen hältst du gedrückt und wischst zügig entlang des Schwungs bis zum Ende. Jeder Kreis zählt als Glied der Krit-Kette, die ganze Serie gibt einen Bonusschlag.</li>
             <li>Die Lebensleiste ist ein 5-Stunden-Limit: Dein Schaden verbraucht es, bei 100 % ist die KI besiegt.</li>
             <li>Die zehnte KI jeder Welle ist eine Ultra-Version mit Launch-Countdown. Schaffst du sie nicht rechtzeitig, geht es zurück zu KI 1.</li>
             <li>Manche KIs haben Eigenschaften: gepanzert, flink, regenerierend, mit Ratenlimit, forkend – und die neue Generation bringt noch mehr mit: Schilde, Tarnung, falsche Schwachstellen, Teleport, Schweigepflicht und andere.</li>

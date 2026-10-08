@@ -95,9 +95,11 @@ const SERIES_GRACE_MS = 140;       // kurz nach dem Schließen zählt es noch
 const SERIES_PERFECT_MS = 260;     // so knapp vor dem Schließen ist es „Perfekt“
 const SERIES_PERFECT_MULT = 1.5;
 const SERIES_CHAIN_GAP_MS = 3000;  // Mindestabstand, bevor die Krit-Kette die nächste Serie auslöst
-const SLIDER_FOLLOW_PX = 60;       // Bogen: so weit darf der Finger von der Kugel weg sein …
-const SLIDER_SLIP_MS = 200;        // … und so lange daneben, bevor er abrutscht
-const SLIDER_MULT = 2;             // Bögen zählen doppelt
+const SLIDER_FOLLOW_PX = 80;       // Bogen: so weit darf der Finger vom Bogen weg sein
+const SLIDER_MAX_MS = 900;         // so lange darf ein Wischer höchstens dauern
+const SLIDER_FAST_MS = 260;        // schneller als das: Blitzbogen
+const SLIDER_MULT = 2;             // Bögen zählen doppelt …
+const SLIDER_FAST_MULT = 1.25;     // … Blitzbögen noch etwas mehr
 
 // Die Lebensleiste ist als Claude-Limit gestaltet: Die HP werden als „verbleibende Zeit“
 // dargestellt. Mit echter Zeit hat das nichts zu tun, es ist nur die Optik.
@@ -1075,6 +1077,8 @@ function buyGenerator(g) {
   if (state.tokens < cost) return;
   state.tokens -= cost;
   state.gens[g.id] += n;
+  restartAnimation(genEls.get(g.id).btn, 'bought');
+  SFX.buy();
   render();
 }
 
@@ -1088,6 +1092,7 @@ function buyUpgrade(u) {
     if (u.key === 'series') nextSeriesAt = Date.now() + 2500;
   } else {
     state.upgrades.add(u.id);
+    SFX.buy();
   }
   mods = computeMods();
   render();
@@ -1203,7 +1208,9 @@ function defeatEnemy() {
     lastLimitPopup = Date.now();
     popup('Limit erreicht', 'limit', 50, 18);
     popup(`+${fmt(loot)}`, 'loot', 50, 30, true);
-    shatter(t.hue);
+    deathEcho();
+    fxRing(50, 50, { size: 300, color: `hsl(${Math.round(t.hue)} 95% 64%)`, dur: 620, width: 6 });
+    fxBurst(50, 50, { count: e.vortex ? 30 : 22, hue: e.vortex ? 280 : t.hue, spread: 150, size: 10, fall: 60, dur: 850 });
     SFX.kill();
   }
   // Forkt sich bzw. Schwarm: Die Kopien müssen auch noch besiegt werden.
@@ -1569,6 +1576,17 @@ function doTap({ clientX = null, clientY = null, auto = false, passive = false }
     return;
   }
 
+  // Die KI weicht vom Tap weg und kippt leicht.
+  const glyph = $('glyph');
+  if (clientX !== null) {
+    const r = $('enemy').getBoundingClientRect();
+    const dx = Math.max(-0.5, Math.min(0.5, (clientX - r.left) / r.width - 0.5));
+    const dy = Math.max(-0.5, Math.min(0.5, (clientY - r.top) / r.height - 0.5));
+    glyph.style.setProperty('--kx', `${(-dx * 18).toFixed(1)}px`);
+    glyph.style.setProperty('--ky', `${(-dy * 18).toFixed(1)}px`);
+    glyph.style.setProperty('--kr', `${(dx * 10).toFixed(1)}deg`);
+  }
+
   let onSpot = false;
   let onFake = false;
   if (clientX !== null && now >= debuffs.blind && hasUnlock('crit')) {
@@ -1591,6 +1609,7 @@ function doTap({ clientX = null, clientY = null, auto = false, passive = false }
     chain.lastAt = now;
     state.bestChain = Math.max(state.bestChain, chain.count);
     missionProgress('chain', chain.count, true);
+    restartAnimation($('chain'), 'bump');
     maybeChainSeries(now);
   } else if (onFake) {
     // Halluziniert: Wer auf eine falsche Schwachstelle hereinfällt, verliert die Kette sofort.
@@ -1613,18 +1632,23 @@ function doTap({ clientX = null, clientY = null, auto = false, passive = false }
   const double = Math.random() < mods.doubleTap ? 2 : 1;
   const dmg = clickValue(now) * comboMult() * focus * double * (crit ? critMult : 1) * damageFactor('tap');
 
+  const tapY = clientY !== null ? y + 8 : y;
   if (crit) {
     state.crits++;
     missionProgress('crits');
     popup(onSpot && chain.count >= 2 ? `Kette ${chain.count} · −${fmt(dmg, 1)}` : `Kritisch −${fmt(dmg, 1)}`, onSpot && chain.count >= 5 ? 'crit huge' : 'crit', x, y);
-    restartAnimation($('arena'), 'shake');
+    restartAnimation($('arena'), chain.count >= 10 ? 'shake-big' : 'shake');
+    fxRing(x, tapY, { size: 90 + Math.min(chain.count, 30) * 4, color: '#fff', dur: 420, width: 3 });
+    fxBurst(x, tapY, { count: 10 + Math.min(chain.count, 20), hue: t.hue, spread: 80 + Math.min(chain.count, 30) * 2, size: 6, fall: 24 });
     SFX.crit(onSpot ? chain.count : 0);
     if (onSpot) moveWeakSpot(now);
   } else if (!auto || showAuto) {
     popup(`−${fmt(dmg, 1)}`, auto ? 'auto' : 'dmg', x, y);
+    if (!auto) fxBurst(x, tapY, { count: 4, hue: t.hue, spread: 34, size: 4, fall: 12, dur: 420 });
     if (!passive) SFX.tap(combo.count);
   }
-  if (!passive || showAuto) restartAnimation($('glyph'), 'hit');
+  if (!auto && combo.count % 10 === 0) restartAnimation($('combo'), 'bump');
+  if (!passive || showAuto) restartAnimation(glyph, crit ? 'crithit' : 'hit');
   attack(dmg);
 }
 
@@ -1819,26 +1843,73 @@ const SFX = {
     blip({ freq, to: freq * 1.02, dur: 0.14, type: 'triangle', gain: 0.045 });
     if (perfect) blip({ freq: freq * 2, dur: 0.18, type: 'sine', gain: 0.022, delay: 0.03 });
   },
-  slideStart: () => blip({ freq: 523, to: 784, dur: 0.5, type: 'sine', gain: 0.025 }),
+  slideStart: () => blip({ freq: 523, to: 659, dur: 0.12, type: 'sine', gain: 0.025 }),
+  swoosh: fast => {
+    blip({ freq: 440, to: fast ? 1760 : 1320, dur: 0.16, type: 'sawtooth', gain: 0.012 });
+    blip({ freq: fast ? 1568 : 1319, dur: 0.18, type: 'triangle', gain: 0.035, delay: 0.08 });
+  },
+  buy: () => blip({ freq: 880, to: 1320, dur: 0.07, type: 'triangle', gain: 0.03 }),
   slideTick: n => blip({ freq: n === 1 ? 1047 : 1319, dur: 0.07, type: 'triangle', gain: 0.03 }),
   flowDone: perfect => (perfect ? [784, 988, 1175, 1568] : [659, 880, 1047]).forEach((freq, i) => blip({ freq, dur: 0.2, type: 'triangle', gain: 0.035, delay: i * 0.06 })),
 };
 
-// Splitter, wenn eine KI fällt
-function shatter(hue) {
-  if (quiet || document.hidden || LOGO_REDUCED_MOTION) return;
-  const layer = $('popups');
-  for (let i = 0; i < 12; i++) {
-    const shard = document.createElement('span');
-    shard.className = 'shard';
+// ---------- Effekte: Partikel, Schockwellen, Nachbild ----------
+
+const FX_MAX = 110;
+
+function fxReady() {
+  return !quiet && !document.hidden && !LOGO_REDUCED_MOTION;
+}
+
+// Partikel-Explosion an einer Stelle der Arena (Angaben in Prozent)
+function fxBurst(x, y, { count = 8, color = null, hue = 20, spread = 70, size = 6, fall = 30, dur = 650 } = {}) {
+  if (!fxReady()) return;
+  const layer = $('fx');
+  while (layer.childElementCount > FX_MAX) layer.firstElementChild.remove();
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('span');
+    p.className = 'fx-dot';
     const a = Math.random() * Math.PI * 2;
-    const d = 60 + Math.random() * 90;
-    shard.style.setProperty('--dx', `${Math.round(Math.cos(a) * d)}px`);
-    shard.style.setProperty('--dy', `${Math.round(Math.sin(a) * d)}px`);
-    shard.style.background = `hsl(${Math.round(hue + Math.random() * 40 - 20)}, 85%, 60%)`;
-    shard.addEventListener('animationend', () => shard.remove());
-    layer.append(shard);
+    const d = spread * (0.4 + Math.random() * 0.6);
+    p.style.left = `${x}%`;
+    p.style.top = `${y}%`;
+    p.style.setProperty('--dx', `${Math.round(Math.cos(a) * d)}px`);
+    p.style.setProperty('--dy', `${Math.round(Math.sin(a) * d)}px`);
+    p.style.setProperty('--fall', `${Math.round(fall * (0.5 + Math.random()))}px`);
+    p.style.setProperty('--s', `${(size * (0.6 + Math.random() * 0.8)).toFixed(1)}px`);
+    p.style.setProperty('--dur', `${Math.round(dur * (0.75 + Math.random() * 0.5))}ms`);
+    p.style.background = color || `hsl(${Math.round(hue + Math.random() * 50 - 25)}, 92%, ${Math.round(56 + Math.random() * 14)}%)`;
+    p.addEventListener('animationend', () => p.remove());
+    layer.append(p);
   }
+}
+
+// Schockwelle: ein Ring, der sich ausbreitet und verblasst
+function fxRing(x, y, { color = 'var(--accent)', size = 120, dur = 500, width = 3 } = {}) {
+  if (!fxReady()) return;
+  const ring = document.createElement('span');
+  ring.className = 'fx-ring';
+  ring.style.left = `${x}%`;
+  ring.style.top = `${y}%`;
+  ring.style.setProperty('--size', `${size}px`);
+  ring.style.setProperty('--dur', `${dur}ms`);
+  ring.style.setProperty('--w', `${width}px`);
+  ring.style.setProperty('--c', color);
+  ring.addEventListener('animationend', () => ring.remove());
+  $('fx').append(ring);
+}
+
+// Nachbild der besiegten KI: dehnt sich aus und verglüht, während die nächste erscheint
+function deathEcho() {
+  if (!fxReady()) return;
+  const r = $('enemy').getBoundingClientRect();
+  const a = $('arena').getBoundingClientRect();
+  const echo = document.createElement('span');
+  echo.className = 'death-echo';
+  echo.innerHTML = $('glyph').innerHTML;
+  Object.assign(echo.style, { left: `${r.left - a.left}px`, top: `${r.top - a.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+  echo.addEventListener('animationend', () => echo.remove());
+  $('fx').append(echo);
 }
 
 // ---------- Kontext komprimieren (Prestige) ----------
@@ -2042,14 +2113,14 @@ const bezier = (sl, t) => [0, 1].map(k => (1 - t) ** 2 * sl.p[k] + 2 * (1 - t) *
 
 // Bogen an einem Kreis: ein kleiner Schwung zu einem Endpunkt, frei von den anderen Kreisen
 function planSlider(p, others, box) {
-  const len = Math.min(105, box.w * 0.3);
+  const len = Math.min(88, box.w * 0.24);
   for (let tries = 0; tries < 14; tries++) {
     const a = Math.random() * Math.PI * 2;
     const q = [p[0] + Math.cos(a) * len, p[1] + Math.sin(a) * len];
     if (q[0] < box.x || q[0] > box.x + box.w || q[1] < box.y || q[1] > box.y + box.h) continue;
     const bend = (Math.random() < 0.5 ? -1 : 1) * len * randomBetween(0.35, 0.55);
     const c = [(p[0] + q[0]) / 2 - Math.sin(a) * bend, (p[1] + q[1]) / 2 + Math.cos(a) * bend];
-    const sl = { p, c, q, ms: Math.round(randomBetween(520, 680)) };
+    const sl = { p, c, q, ms: 260 };
     const samples = [0.35, 0.65, 1].map(t => bezier(sl, t));
     if (samples.every(([x, y]) => others.every(o => Math.hypot(o[0] - x, o[1] - y) > 62))) return sl;
   }
@@ -2148,7 +2219,7 @@ function spawnSeries() {
   layer.replaceChildren();
   const r = Math.round;
   const line = points.flatMap((p, i) => (sliders[i] ? [p, sliders[i].q] : [p])).map(p => p.map(r).join(',')).join(' ');
-  const tracks = sliders.map((sl, i) => (sl ? ((d) => `<g class="slider-track" data-slider="${i}"><path class="st-edge" d="${d}"/><path class="st-fill" d="${d}"/><circle cx="${r(sl.q[0])}" cy="${r(sl.q[1])}" r="21"/></g>`)(`M${sl.p.map(r).join(' ')}Q${sl.c.map(r).join(' ')} ${sl.q.map(r).join(' ')}`) : '')).join('');
+  const tracks = sliders.map((sl, i) => (sl ? ((d) => `<g class="slider-track" data-slider="${i}"><path class="st-edge" d="${d}"/><path class="st-fill" d="${d}"/><path class="st-progress" pathLength="1" d="${d}"/><circle cx="${r(sl.q[0])}" cy="${r(sl.q[1])}" r="21"/></g>`)(`M${sl.p.map(r).join(' ')}Q${sl.c.map(r).join(' ')} ${sl.q.map(r).join(' ')}`) : '')).join('');
   layer.insertAdjacentHTML('beforeend', `<svg class="series-path" viewBox="0 0 ${r(arena.width)} ${r(arena.height)}" aria-hidden="true"><polyline points="${line}"/>${tracks}</svg>`);
   const toPct = ([x, y]) => [x / arena.width * 100, y / arena.height * 100];
   series.items = points.map((p, i) => {
@@ -2181,6 +2252,8 @@ function spawnSeries() {
       item.appearAt = Date.now();
       item.deadline = item.appearAt + approach + SERIES_GRACE_MS;
       el.classList.add('live');
+      // Goldener Ring: jetzt ist der perfekte Moment
+      item.ripeTimer = setTimeout(() => el.classList.add('ripe'), Math.max(0, approach - SERIES_PERFECT_MS));
     }, delays[i]);
     return item;
   });
@@ -2212,23 +2285,25 @@ function placeBall([x, y]) {
   series.ball.style.top = `${y / a.height * 100}%`;
 }
 
-// Bogen: gedrückt halten, die Kugel gleitet zum Ende, der Finger folgt ihr.
+// Bogen: gedrückt halten und zügig entlang wischen. Die Kugel folgt dem Finger, die Spur füllt sich.
 function startSlide(item, e) {
   const now = Date.now();
   item.holding = true;
   item.perfectHead = now >= item.appearAt + series.approach - SERIES_PERFECT_MS;
   item.slideAt = now;
   item.deadline = Infinity;
-  item.offSince = 0;
+  item.progress = 0;
   item.ticks = 0;
-  item.pointer = pointerInArena(e);
+  item.samples = Array.from({ length: 41 }, (_, k) => bezier(item.slider, k / 40));
   item.el.classList.add('holding');
   try {
     item.el.setPointerCapture(e.pointerId);
   } catch {
     // Ohne Capture kommen die Bewegungen trotzdem an, solange der Finger auf dem Kreis startet.
   }
-  const move = ev => { item.pointer = pointerInArena(ev); };
+  const move = ev => {
+    for (const p of ev.getCoalescedEvents?.() || [ev]) slideMove(item, pointerInArena(p));
+  };
   const up = () => {
     item.release();
     if (item.holding) releaseSlide(item);
@@ -2241,67 +2316,84 @@ function startSlide(item, e) {
   item.el.addEventListener('pointermove', move);
   item.el.addEventListener('pointerup', up);
   item.el.addEventListener('pointercancel', up);
+  item.watch = setTimeout(() => {
+    if (item.holding) failSlide(item, bezier(item.slider, item.progress), 'Zu langsam');
+  }, SLIDER_MAX_MS);
   placeBall(item.slider.p);
   series.ball.hidden = false;
-  $('series').querySelector(`[data-slider="${item.index}"]`)?.classList.add('active');
+  sliderTrack(item)?.classList.add('active');
   SFX.slideStart();
-  requestAnimationFrame(() => slideFrame(item));
 }
 
-function slideProgress(item) {
-  return clamp01((Date.now() - item.slideAt) / item.slider.ms);
+function sliderTrack(item) {
+  return $('series').querySelector(`[data-slider="${item.index}"]`);
 }
 
-function slideFrame(item) {
+// Die Kugel springt auf die Stelle des Bogens, die dem Finger am nächsten ist – nur vorwärts.
+function slideMove(item, pos) {
   if (!item.holding) return;
-  const now = Date.now();
-  const t = slideProgress(item);
-  const pos = bezier(item.slider, t);
-  placeBall(pos);
-  // Großzügig: Der Finger muss nur in der Nähe der Kugel bleiben.
-  if (Math.hypot(item.pointer[0] - pos[0], item.pointer[1] - pos[1]) > SLIDER_FOLLOW_PX) {
-    item.offSince ||= now;
-    if (now - item.offSince > SLIDER_SLIP_MS) return failSlide(item, pos);
-  } else {
-    item.offSince = 0;
+  let best = item.progress;
+  let bestD = Infinity;
+  item.samples.forEach((p, k) => {
+    const t = k / 40;
+    if (t < item.progress - 0.15) return;
+    const d = Math.hypot(p[0] - pos[0], p[1] - pos[1]);
+    if (d < bestD) {
+      bestD = d;
+      best = t;
+    }
+  });
+  if (bestD > SLIDER_FOLLOW_PX) return failSlide(item, bezier(item.slider, item.progress));
+  if (best > item.progress) {
+    item.progress = best;
+    placeBall(bezier(item.slider, best));
+    sliderTrack(item)?.querySelector('.st-progress')?.style.setProperty('stroke-dasharray', `${best.toFixed(3)} 1`);
+    const tick = Math.floor(best * 3);
+    if (tick > item.ticks && tick < 3) {
+      item.ticks = tick;
+      SFX.slideTick(tick);
+      haptic();
+    }
   }
-  const tick = Math.floor(t * 3);
-  if (tick > item.ticks && tick < 3) {
-    item.ticks = tick;
-    SFX.slideTick(tick);
-    haptic();
-  }
-  if (t >= 1) return completeSlide(item);
-  requestAnimationFrame(() => slideFrame(item));
+  if (item.progress >= 0.9) completeSlide(item);
 }
 
 function stopSlide(item) {
   item.holding = false;
+  clearTimeout(item.watch);
   item.release?.();
   item.el.classList.remove('holding');
   if (series.ball) series.ball.hidden = true;
 }
 
-// Kurz vor dem Ende loslassen zählt noch.
+// Fast am Ende loslassen zählt noch.
 function releaseSlide(item) {
-  if (slideProgress(item) >= 0.8) completeSlide(item);
-  else failSlide(item, bezier(item.slider, slideProgress(item)));
+  if (item.progress >= 0.7) completeSlide(item);
+  else failSlide(item, bezier(item.slider, item.progress));
 }
 
 function completeSlide(item) {
+  const fast = Date.now() - item.slideAt <= SLIDER_FAST_MS;
   stopSlide(item);
-  landSeries(item, item.perfectHead, true);
+  // Funkenspur entlang des Bogens
+  const a = series.arena;
+  for (const t of [0.25, 0.5, 0.75, 1]) {
+    const [x, y] = bezier(item.slider, t);
+    fxBurst(x / a.width * 100, y / a.height * 100, { count: t === 1 ? 14 : 4, color: fast ? '#ffcc00' : null, hue: 20, spread: t === 1 ? 90 : 30, size: t === 1 ? 7 : 5, fall: 10 });
+  }
+  SFX.swoosh(fast);
+  landSeries(item, item.perfectHead, true, fast);
 }
 
-function failSlide(item, pos) {
+function failSlide(item, pos, text = 'Abgerutscht') {
   stopSlide(item);
   const a = series.arena;
-  popup('Abgerutscht', 'blocked', pos[0] / a.width * 100, pos[1] / a.height * 100 - 8);
+  popup(text, 'blocked', pos[0] / a.width * 100, pos[1] / a.height * 100 - 8);
   endSeries(Date.now(), null);
 }
 
 // Ein Kreis der Serie zählt wie ein gezielter Treffer: Combo, Krit-Kette und Krit-Schaden.
-function landSeries(item, perfect, slid = false) {
+function landSeries(item, perfect, slid = false, fast = false) {
   const i = item.index;
   const now = Date.now();
   clock = now;
@@ -2329,10 +2421,13 @@ function landSeries(item, perfect, slid = false) {
   state.crits++;
   missionProgress('crits');
   const focus = skillActive('focus', now) ? skillPower('focus') : 1;
-  const dmg = clickValue(now) * comboMult() * focus * critMult * (perfect ? SERIES_PERFECT_MULT : 1) * (slid ? SLIDER_MULT : 1) * damageFactor('tap');
+  const slideMult = slid ? SLIDER_MULT * (fast ? SLIDER_FAST_MULT : 1) : 1;
+  const dmg = clickValue(now) * comboMult() * focus * critMult * (perfect ? SERIES_PERFECT_MULT : 1) * slideMult * damageFactor('tap');
   const [px, py] = slid && item.slider ? [item.slider.q[0] / series.arena.width * 100, item.slider.q[1] / series.arena.height * 100] : [item.x, item.y];
-  const label = slid ? (perfect ? 'Perfekter Bogen' : 'Bogen') : (perfect ? 'Perfekt' : 'Treffer');
-  popup(`${label} −${fmt(dmg, 1)}`, perfect ? 'crit perfect' : 'crit', px, py - 10);
+  const label = slid ? (fast ? 'Blitzbogen' : perfect ? 'Perfekter Bogen' : 'Bogen') : (perfect ? 'Perfekt' : 'Treffer');
+  popup(`${label} −${fmt(dmg, 1)}`, perfect || fast ? 'crit perfect' : 'crit', px, py - 10);
+  fxRing(px, py, { size: perfect ? 130 : 100, color: perfect || fast ? '#ffcc00' : 'var(--accent)', dur: 450, width: 4 });
+  fxBurst(px, py, { count: perfect ? 12 : 7, color: perfect ? '#ffcc00' : null, hue: 20, spread: perfect ? 80 : 55, size: 6, fall: 14 });
   SFX.flow(i, perfect);
   haptic();
   restartAnimation($('glyph'), 'hit');
@@ -2350,6 +2445,8 @@ function finishSeries(now) {
   missionProgress('series');
   const dmg = clickValue(now) * comboMult() * chainCritMult() * n * (allPerfect ? 2 : 1) * damageFactor('tap');
   popup(`${allPerfect ? 'Perfekte Serie' : 'Serie'} ×${n} · −${fmt(dmg, 1)}`, 'crit huge', 50, 26);
+  fxRing(50, 48, { size: 320, color: allPerfect ? '#ffcc00' : 'var(--accent)', dur: 700, width: 5 });
+  fxBurst(50, 48, { count: 26, color: allPerfect ? '#ffcc00' : null, hue: 25, spread: 170, size: 8, fall: 60, dur: 900 });
   restartAnimation($('arena'), 'flash');
   restartAnimation($('arena'), 'shake');
   SFX.flowDone(allPerfect);
@@ -2361,6 +2458,7 @@ function finishSeries(now) {
 function endSeries(now, missed) {
   for (const item of series.items) {
     clearTimeout(item.timer);
+    clearTimeout(item.ripeTimer);
     if (item.holding) stopSlide(item);
     if (!item.done) {
       item.el.classList.add('missed');
@@ -2458,6 +2556,8 @@ function parry(a) {
   state.parries++;
   const dmg = state.boss.maxHp * BOSS_PARRY_DAMAGE;
   popup(`Abgewehrt −${fmt(dmg)}`, 'parry', a.x, a.y - 10);
+  fxRing(a.x, a.y, { size: 120, color: '#30d158', dur: 450, width: 4 });
+  fxBurst(a.x, a.y, { count: 10, color: '#30d158', spread: 70, size: 6, fall: 20 });
   SFX.parry();
   clock = Date.now();
   attack(dmg);
@@ -2482,6 +2582,7 @@ function attackHits(a, now) {
     }
   }
   popup(d.name, 'blocked', a.x, a.y);
+  fxRing(a.x, a.y, { size: 160, color: '#ff453a', dur: 500, width: 5 });
   restartAnimation($('arena'), 'hurt');
   restartAnimation($('arena'), 'shake');
   SFX.hurt();
@@ -3139,7 +3240,7 @@ function renderEnemy(now) {
     const isNew = !t.isBoss && !state.discovered.has(state.enemy.kind);
     if (isNew) state.discovered.add(state.enemy.kind);
     $('glyph').innerHTML = logoSvg(t.model.family, t.hue, t.seed, { halo: t.ultra || t.isBoss, letter: t.model.name[0], vortex: t.vortex });
-    enemyEl.style.setProperty('--hue', String(Math.round(t.hue)));
+    $('arena').style.setProperty('--hue', String(Math.round(t.hue)));
     enemyEl.setAttribute('aria-label', `${t.name} angreifen`);
     enemyEl.classList.toggle('vortex', t.vortex);
     enemyEl.style.translate = '';
@@ -3160,10 +3261,14 @@ function renderEnemy(now) {
     }
     moveWeakSpot(now);
     // Neue KI: Leiste ohne Animation auf den neuen Stand setzen.
+    const ghost = $('meter-ghost');
     fill.style.transition = 'none';
+    ghost.style.transition = 'none';
     fill.style.width = pct;
+    ghost.style.width = pct;
     void fill.offsetWidth;
     fill.style.transition = '';
+    ghost.style.transition = '';
     if (now - lastSpawnAnimation > 300) {
       lastSpawnAnimation = now;
       restartAnimation($('glyph'), 'spawn');
@@ -3300,6 +3405,7 @@ function renderSkills(now) {
     const unlocked = st.level > 0;
     const active = now < st.activeUntil;
     const cooling = unlocked && now < st.readyAt;
+    if (unlocked && !cooling && btn.classList.contains('cooling')) restartAnimation(btn, 'ready-pop');
     btn.classList.toggle('locked', !unlocked);
     btn.classList.toggle('active', active);
     btn.classList.toggle('cooling', cooling && !active);
@@ -3515,11 +3621,13 @@ function render() {
   const now = Date.now();
   const dps = currentDps(now);
   const click = clickValue(now);
-  $('tokens').textContent = fmt(Math.floor(state.tokens));
   $('tps').textContent = `≈ ${fmt(dps * tokenRate() * tokenBoost(now), 1)}/s + Beute`;
   $('dps').textContent = fmt(dps, 1);
   $('click-dmg').textContent = `+${fmt(click, 1)} pro Tap`;
-  $('wave').textContent = fmt(state.wave);
+  if ($('wave').textContent !== fmt(state.wave)) {
+    $('wave').textContent = fmt(state.wave);
+    restartAnimation($('wave'), 'bump');
+  }
   $('wave-sub').textContent = state.boss ? 'Bosskampf' : `Level ${fmt(currentLevel())}`;
   $('daily-btn').hidden = state.lastDaily === dayId(now);
   document.title = `${fmt(Math.floor(state.tokens))} Tokens · No Limit`;
@@ -3546,6 +3654,18 @@ function render() {
   $('sound-btn').setAttribute('aria-checked', String(state.sound));
 }
 
+// Angezeigte Tokens folgen dem echten Wert weich (zählen hoch und runter).
+const shownTokens = { value: null };
+function animateCounters() {
+  const target = Math.floor(state.tokens);
+  const shown = shownTokens.value ?? target;
+  const diff = target - shown;
+  shownTokens.value = Math.abs(diff) <= Math.max(1, Math.abs(target) * 0.0005) ? target : shown + diff * 0.2;
+  const text = fmt(Math.floor(shownTokens.value));
+  if ($('tokens').textContent !== text) $('tokens').textContent = text;
+  requestAnimationFrame(animateCounters);
+}
+
 // Schadenszahlen und Beute über der KI; Position in Prozent der Arena.
 function popup(text, kind, x, y, withToken = false) {
   if (quiet || document.hidden) return;
@@ -3557,6 +3677,8 @@ function popup(text, kind, x, y, withToken = false) {
   if (withToken) el.insertAdjacentHTML('beforeend', icon('token'));
   el.style.left = `${x}%`;
   el.style.top = `${y}%`;
+  el.style.setProperty('--drift', `${Math.round(randomBetween(-16, 16))}px`);
+  if (kind.startsWith('crit')) el.style.setProperty('--rot', `${Math.round(randomBetween(-7, 7))}deg`);
   el.addEventListener('animationend', () => el.remove());
   layer.append(el);
 }
@@ -3816,7 +3938,7 @@ function init() {
     if (Number.isInteger(i) && i >= 0 && i < SKILLS.length) useSkill(SKILLS[i].id);
   });
   $('glyph').addEventListener('animationend', e => {
-    if (e.target === $('glyph')) e.target.classList.remove('hit', 'spawn');
+    if (e.target === $('glyph')) e.target.classList.remove('hit', 'crithit', 'spawn');
   });
   for (const btn of document.querySelectorAll('[role="tab"]')) {
     btn.addEventListener('click', () => {
@@ -3838,6 +3960,7 @@ function init() {
   renderTabs();
   render();
   moveWeakSpot(Date.now());
+  requestAnimationFrame(animateCounters);
   setInterval(tick, TICK_MS);
 }
 
