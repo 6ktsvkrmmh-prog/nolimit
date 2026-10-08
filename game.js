@@ -51,22 +51,18 @@ const COMBO_WINDOW_MS = 1500;   // so lange darf zwischen zwei Taps liegen
 const COMBO_STEP = 0.01;        // +1 % Tap-Schaden pro Combo-Stufe
 const COMBO_CAP = 100;
 const CRIT_MULT = 4;
-// Krit-Kette: Treffer auf die Schwachstelle in Folge. Jedes Glied macht Krits stärker,
-// aber das Zeitfenster schrumpft, der Punkt wird kleiner und wandert immer schneller.
+// Krit-Kette: Treffer auf die Schwachstelle in Folge. Jedes Glied macht Krits stärker.
+// Die ersten 20 bis 30 Glieder sind entspannt, danach wird es Glied für Glied schwerer:
+// weniger Zeit, ein kleinerer Punkt, der immer schneller wandert.
 const CHAIN_BONUS = 0.25;          // +25 % Krit-Schaden pro Glied
-const CHAIN_WINDOW_MS = 2600;      // Zeit bis zum nächsten Treffer am Anfang …
-const CHAIN_WINDOW_STEP = 120;     // … minus so viel pro Glied …
-const CHAIN_WINDOW_MIN = 700;      // … aber nie weniger als das
-const CHAIN_SHRINK = 0.035;        // Schwachstelle pro Glied 3,5 % kleiner …
-const CHAIN_MIN_SIZE = 0.45;       // … bis auf 45 %
-const CHAIN_DRIFT_FROM = 5;        // ab dieser Kette wandert der Punkt …
-const CHAIN_DRIFT_STEP = 0.06;     // … pro Glied schneller (Anteil der KI-Größe pro Sekunde)
-const CHAIN_DRIFT_MAX = 0.6;
+const CHAIN_EASY_UNTIL = 15;       // bis hierhin bleibt die Kette gleich leicht …
+const CHAIN_HARD_AT = 75;          // … ab hier ist sie maximal schwer
+const CHAIN_WINDOW_EASY = 3400;    // Zeit bis zum nächsten Treffer am Anfang …
+const CHAIN_WINDOW_HARD = 800;     // … und ganz am Ende
+const CHAIN_SIZE_EASY = 1.25;      // Größe der Schwachstelle am Anfang …
+const CHAIN_SIZE_HARD = 0.5;       // … und am Ende
+const CHAIN_DRIFT_MAX = 0.6;       // Wandern am Ende (Anteil der KI-Größe pro Sekunde)
 const WEAKSPOT_RADIUS = 0.13;   // Trefferradius als Anteil der KI-Größe
-// Leichter Einstieg in die Krit-Kette: Die ersten Glieder haben mehr Zeit und einen größeren Punkt.
-const CHAIN_EASY_LINKS = 4;
-const CHAIN_EASY_WINDOW = 200;  // ms extra pro Glied unter CHAIN_EASY_LINKS (am Anfang +800 ms)
-const CHAIN_EASY_SIZE = 0.25;   // am Anfang 25 % größer, bis Glied 4 auf normal
 const WEAKSPOT_MOVE_MS = 2600;
 const ULTRA_TIME_MS = 30_000;   // Launch-Countdown der Ultra-KI
 const TRAIT_MIN_WAVE = 3;
@@ -98,6 +94,10 @@ const SERIES_MAX_MS = 13_000;
 const SERIES_GRACE_MS = 140;       // kurz nach dem Schließen zählt es noch
 const SERIES_PERFECT_MS = 260;     // so knapp vor dem Schließen ist es „Perfekt“
 const SERIES_PERFECT_MULT = 1.5;
+const SERIES_CHAIN_GAP_MS = 3000;  // Mindestabstand, bevor die Krit-Kette die nächste Serie auslöst
+const SLIDER_FOLLOW_PX = 60;       // Bogen: so weit darf der Finger von der Kugel weg sein …
+const SLIDER_SLIP_MS = 200;        // … und so lange daneben, bevor er abrutscht
+const SLIDER_MULT = 2;             // Bögen zählen doppelt
 
 // Die Lebensleiste ist als Claude-Limit gestaltet: Die HP werden als „verbleibende Zeit“
 // dargestellt. Mit echter Zeit hat das nichts zu tun, es ist nur die Optik.
@@ -285,6 +285,27 @@ const TIER_NAMES = {
 };
 const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 
+// Freischaltungen: Die Kampf-Mechaniken kommen Schritt für Schritt dazu und bleiben über Prestiges erhalten.
+const UNLOCKS = [
+  { id: 'unlock-crit', key: 'crit', name: 'Schwachstellen-Analyse', flavor: 'Jedes Modell hat einen wunden Punkt.',
+    effect: 'Schaltet kritische Treffer frei', icon: 'crosshair', colors: ['#ff375f', '#ff9f0a'], cost: 75,
+    unlocked: s => s.clicks >= 10,
+    toast: 'Auf jeder KI leuchtet jetzt ein Punkt. Triffst du ihn, ist es ein kritischer Treffer.' },
+  { id: 'unlock-chain', key: 'chain', name: 'Treffsicherheit', flavor: 'Ein Treffer kommt selten allein.',
+    effect: 'Schaltet die Krit-Kette frei', icon: 'chain', colors: ['#ff375f', '#d97757'], cost: 3000,
+    unlocked: s => s.unlocks.has('crit') && s.crits >= 10,
+    toast: 'Triffst du den Punkt mehrmals in Folge, wird jeder Krit stärker. Ein Fehltipp lässt die Kette reißen.' },
+  { id: 'unlock-series', key: 'series', name: 'Im Takt', flavor: 'Eins, zwei, drei – und los.',
+    effect: 'Schaltet Flow-Serien frei', icon: 'sparkle', colors: ['#d97757', '#ffcc00'], cost: 30_000,
+    unlocked: s => s.unlocks.has('chain') && s.bestChain >= 5,
+    toast: 'Ab und zu erscheinen nummerierte Kreise. Tippe sie im Takt an, bevor sich ihr Ring schließt.' },
+  { id: 'unlock-slider', key: 'slider', name: 'Schwungvoll', flavor: 'Halten, gleiten, loslassen.',
+    effect: 'Schaltet Bögen in den Flow-Serien frei', icon: 'route', colors: ['#bf5af2', '#d97757'], cost: 300_000,
+    unlocked: s => s.unlocks.has('series') && s.seriesDone >= 3,
+    toast: 'Manche Kreise haben jetzt einen Bogen: gedrückt halten und der Kugel bis zum Ende folgen.' },
+];
+const UNLOCK_KEYS = UNLOCKS.map(u => u.key);
+
 const UPGRADES = [
   ...GENERATORS.flatMap(g => TIER_NAMES[g.id].map(([name, flavor], i) => ({
     id: `${g.id}-${i}`,
@@ -319,7 +340,7 @@ const UPGRADES = [
   { id: 'golden-1', name: 'Spontane Emergenz', flavor: 'Plötzlich kann das Modell Dinge, die keiner geplant hat.', effect: 'Geistesblitze doppelt so oft',
     icon: 'sparkle', colors: ['#ffcc00', '#ff9f0a'], cost: 77_777, unlocked: s => s.goldenClicks >= 3, apply: m => { m.goldenFreq *= 2; } },
   { id: 'crit-1', name: 'Schwachstellen-Scanner', flavor: 'Findet jede Lücke im Modell.', effect: 'Kritische Treffer ×1,5',
-    icon: 'crosshair', colors: ['#ff375f', '#ff9f0a'], cost: 5000, unlocked: s => s.crits >= 15, apply: m => { m.crit *= 1.5; } },
+    icon: 'crosshair', colors: ['#ff375f', '#ff9f0a'], cost: 5000, unlocked: s => s.unlocks.has('crit') && s.crits >= 15, apply: m => { m.crit *= 1.5; } },
   { id: 'crit-2', name: 'Adversarial Prompts', flavor: 'Genau die Eingabe, die das Modell verwirrt.', effect: 'Schwachstelle 40 % größer',
     icon: 'target', colors: ['#bf5af2', '#ff375f'], cost: 2e5, unlocked: s => s.crits >= 100, apply: m => { m.weakSize *= 1.4; } },
   { id: 'crit-3', name: 'Zero-Day-Exploit', flavor: 'Diese Lücke kennt noch niemand.', effect: 'Kritische Treffer ×2',
@@ -493,14 +514,14 @@ function autoBuySeconds(L) {
 
 const MISSION_TYPES = [
   { type: 'kills', icon: 'target', range: [15, 40], text: n => `Besiege ${n} KIs` },
-  { type: 'crits', icon: 'crosshair', range: [8, 25], text: n => `Lande ${n} kritische Treffer` },
+  { type: 'crits', icon: 'crosshair', range: [8, 25], text: n => `Lande ${n} kritische Treffer`, when: s => s.unlocks.has('crit') },
   { type: 'combo', icon: 'flame', range: [20, 70], text: n => `Erreiche eine Combo von ${n}` },
-  { type: 'chain', icon: 'chain', range: [4, 10], text: n => `Schaffe eine Krit-Kette von ${n}` },
+  { type: 'chain', icon: 'chain', range: [6, 25], text: n => `Schaffe eine Krit-Kette von ${n}`, when: s => s.unlocks.has('chain') },
   { type: 'taps', icon: 'cursor', range: [100, 300], text: n => `Tippe ${n}-mal auf KIs` },
   { type: 'ultras', icon: 'rocket', range: [1, 3], text: n => (n > 1 ? `Besiege ${n} Ultra-KIs vor dem Launch` : 'Besiege eine Ultra-KI vor dem Launch') },
   { type: 'traits', icon: 'shield', range: [3, 8], text: n => `Besiege ${n} KIs mit Eigenschaft`, when: s => s.highestWave >= TRAIT_MIN_WAVE },
   { type: 'skills', icon: 'storm', range: [2, 5], text: n => `Setze ${n}× eine Fähigkeit ein`, when: s => SKILLS.some(k => s.skills[k.id].level > 0) },
-  { type: 'series', icon: 'sparkle', range: [2, 5], text: n => `Schließe ${n} Flow-Serien ab`, when: s => s.clicks >= 30 },
+  { type: 'series', icon: 'sparkle', range: [2, 5], text: n => `Schließe ${n} Flow-Serien ab`, when: s => s.unlocks.has('series') },
   { type: 'discover', icon: 'sparkle', range: [2, 4], text: n => `Entdecke ${n} neue KIs`, when: s => MODELS.filter((m, i) => (m.wave || 1) <= s.highestWave && !s.discovered.has(i)).length >= 4 },
 ];
 
@@ -540,6 +561,7 @@ const ACHIEVEMENTS = [
   { id: 'combo-100', name: 'Combo-Meister', desc: 'Erreiche eine Combo von 100.', check: s => s.maxCombo >= 100 },
   { id: 'chain-10', name: 'Scharfschütze', desc: 'Schaffe eine Krit-Kette von 10.', check: s => s.bestChain >= 10 },
   { id: 'chain-25', name: 'Unaufhaltsam', desc: 'Schaffe eine Krit-Kette von 25.', check: s => s.bestChain >= 25 },
+  { id: 'chain-50', name: 'Unantastbar', desc: 'Schaffe eine Krit-Kette von 50.', check: s => s.bestChain >= 50 },
   { id: 'ultra-10', name: 'Launch verhindert', desc: 'Besiege 10 Ultra-KIs vor ihrem Launch.', check: s => s.ultraWins >= 10 },
   { id: 'skills-25', name: 'Werkzeugkasten', desc: 'Setze 25-mal eine Fähigkeit ein.', check: s => s.skillUses >= 25 },
   { id: 'missions-10', name: 'Auftragslage gut', desc: 'Erledige 10 Aufträge.', check: s => s.missionsDone >= 10 },
@@ -745,6 +767,7 @@ function freshState(now = Date.now()) {
     clicks: 0,
     gens: Object.fromEntries(GENERATORS.map(g => [g.id, 0])),
     upgrades: new Set(),
+    unlocks: new Set(),   // freigeschaltete Mechaniken (bleiben über Prestiges)
     achievements: new Set(),
     discovered: new Set(),
     vortex: new Set(),    // gesammelte Dark-Vortex-Varianten (Modell-Index)
@@ -820,6 +843,9 @@ function fromSaveData(data) {
       ? data.missions.filter(m => m && MISSION_TYPES.some(t => t.type === m.type) && m.target > 0)
       : [],
     upgrades: new Set(data.upgrades || []),
+    // Ältere Spielstände kannten Krits und Ketten schon ohne Freischaltung.
+    unlocks: new Set([...(data.unlocks || []), ...((data.crits || 0) > 0 ? ['crit'] : []), ...((data.bestChain || 0) >= 2 ? ['chain'] : [])]
+      .filter(k => UNLOCK_KEYS.includes(k))),
     tree: Object.fromEntries(TREE
       .map(n => [n.id, Math.min(n.max, Math.max(0, Math.floor(Number((data.tree || {})[n.id]) || 0)))])
       .filter(([, level]) => level > 0)),
@@ -846,6 +872,7 @@ function toSaveData() {
   return {
     ...state,
     upgrades: [...state.upgrades],
+    unlocks: [...state.unlocks],
     achievements: [...state.achievements],
     discovered: [...state.discovered],
     vortex: [...state.vortex],
@@ -1023,7 +1050,15 @@ function costOf(g, n) {
 }
 
 function upgradeCost(u) {
-  return u.cost * mods.upgradeCost;
+  return u.key ? u.cost : u.cost * mods.upgradeCost;
+}
+
+function hasUnlock(key) {
+  return state.unlocks.has(key);
+}
+
+function upgradeOwned(u) {
+  return u.key ? state.unlocks.has(u.key) : state.upgrades.has(u.id);
 }
 
 function amountToBuy(g) {
@@ -1044,9 +1079,16 @@ function buyGenerator(g) {
 }
 
 function buyUpgrade(u) {
-  if (state.upgrades.has(u.id) || state.tokens < upgradeCost(u)) return;
+  if (upgradeOwned(u) || state.tokens < upgradeCost(u)) return;
   state.tokens -= upgradeCost(u);
-  state.upgrades.add(u.id);
+  if (u.key) {
+    state.unlocks.add(u.key);
+    toast(`<strong>${u.name} · ${u.effect}</strong><br><span class="muted">${u.toast}</span>`, u.icon);
+    SFX.win();
+    if (u.key === 'series') nextSeriesAt = Date.now() + 2500;
+  } else {
+    state.upgrades.add(u.id);
+  }
   mods = computeMods();
   render();
 }
@@ -1381,9 +1423,13 @@ function comboMult() {
 
 const chain = { count: 0, lastAt: 0, misses: 0 };
 
+// 0 = entspannt (bis Glied 15), 1 = maximal schwer (ab Glied 75); dazwischen erst sanft, dann steiler
+function chainDifficulty(count = chain.count) {
+  return clamp01((count - CHAIN_EASY_UNTIL) / (CHAIN_HARD_AT - CHAIN_EASY_UNTIL)) ** 1.4;
+}
+
 function chainWindow() {
-  const easy = Math.max(0, CHAIN_EASY_LINKS - chain.count) * CHAIN_EASY_WINDOW;
-  return Math.max(CHAIN_WINDOW_MIN, CHAIN_WINDOW_MS - CHAIN_WINDOW_STEP * chain.count) + easy + mods.chainWindow;
+  return CHAIN_WINDOW_EASY - (CHAIN_WINDOW_EASY - CHAIN_WINDOW_HARD) * chainDifficulty() + mods.chainWindow;
 }
 
 // Krit-Multiplikator für den nächsten Treffer auf die Schwachstelle
@@ -1392,9 +1438,8 @@ function chainCritMult(count = chain.count) {
 }
 
 function weakRadius() {
-  const shrink = Math.max(CHAIN_MIN_SIZE, 1 - CHAIN_SHRINK * mods.chainShrink * chain.count);
-  const easy = 1 + CHAIN_EASY_SIZE * Math.max(0, CHAIN_EASY_LINKS - chain.count) / CHAIN_EASY_LINKS;
-  return WEAKSPOT_RADIUS * mods.weakSize * shrink * easy;
+  const size = CHAIN_SIZE_EASY - (CHAIN_SIZE_EASY - CHAIN_SIZE_HARD) * chainDifficulty() * mods.chainShrink;
+  return WEAKSPOT_RADIUS * mods.weakSize * size;
 }
 
 function breakChain(now) {
@@ -1409,7 +1454,7 @@ function breakChain(now) {
 
 // Ab einer längeren Kette wandert die Schwachstelle und prallt am Rand ab.
 function driftWeakSpot(dtMs) {
-  const speed = chain.count >= CHAIN_DRIFT_FROM ? Math.min(CHAIN_DRIFT_MAX, CHAIN_DRIFT_STEP * (chain.count - CHAIN_DRIFT_FROM + 1)) * mods.drift : 0;
+  const speed = CHAIN_DRIFT_MAX * chainDifficulty() * mods.drift;
   const el = $('weakspot');
   el.classList.toggle('drift', speed > 0);
   if (!speed) return;
@@ -1526,7 +1571,7 @@ function doTap({ clientX = null, clientY = null, auto = false, passive = false }
 
   let onSpot = false;
   let onFake = false;
-  if (clientX !== null && now >= debuffs.blind) {
+  if (clientX !== null && now >= debuffs.blind && hasUnlock('crit')) {
     const r = $('enemy').getBoundingClientRect();
     const px = (clientX - r.left) / r.width;
     const py = (clientY - r.top) / r.height;
@@ -1540,12 +1585,13 @@ function doTap({ clientX = null, clientY = null, auto = false, passive = false }
   // Krit-Kette: nur gezielte Treffer verlängern sie, ein Fehltipp lässt sie reißen.
   // Zufalls-Krits halten sie; Taps ohne Zielpunkt (Tastatur, Prompt-Sturm) zählen nicht.
   let critMult = CRIT_MULT * mods.crit;
-  if (onSpot) {
+  if (onSpot && hasUnlock('chain')) {
     critMult = chainCritMult();
     chain.count++;
     chain.lastAt = now;
     state.bestChain = Math.max(state.bestChain, chain.count);
     missionProgress('chain', chain.count, true);
+    maybeChainSeries(now);
   } else if (onFake) {
     // Halluziniert: Wer auf eine falsche Schwachstelle hereinfällt, verliert die Kette sofort.
     popup('Halluzination!', 'blocked', x, y - 6);
@@ -1773,6 +1819,8 @@ const SFX = {
     blip({ freq, to: freq * 1.02, dur: 0.14, type: 'triangle', gain: 0.045 });
     if (perfect) blip({ freq: freq * 2, dur: 0.18, type: 'sine', gain: 0.022, delay: 0.03 });
   },
+  slideStart: () => blip({ freq: 523, to: 784, dur: 0.5, type: 'sine', gain: 0.025 }),
+  slideTick: n => blip({ freq: n === 1 ? 1047 : 1319, dur: 0.07, type: 'triangle', gain: 0.03 }),
   flowDone: perfect => (perfect ? [784, 988, 1175, 1568] : [659, 880, 1047]).forEach((freq, i) => blip({ freq, dur: 0.2, type: 'triangle', gain: 0.035, delay: i * 0.06 })),
 };
 
@@ -1965,21 +2013,47 @@ function autoBuy() {
 
 // ---------- Flow-Serien ----------
 
-const series = { items: [], next: 0, perfect: 0, approach: 0 };
+const series = { items: [], next: 0, perfect: 0, approach: 0, endedAt: 0, ball: null };
 let nextSeriesAt = Date.now() + randomBetween(6000, 10_000);
 
-// Mit längerer Krit-Kette: mehr Kreise, schnellerer Takt
+// 2 bis 5 Kreise – je länger die Krit-Kette, desto mehr
 function seriesLength() {
-  return chain.count >= 12 ? 5 : chain.count >= 6 ? 4 : 3;
+  const c = chain.count;
+  const base = c < 5 ? 2 : c < 15 ? 3 : c < 35 ? 3.5 : 4.5;
+  return Math.min(5, Math.max(2, Math.round(base + randomBetween(-0.9, 0.9))));
 }
 
-// Am Anfang gemütlich, mit wachsender Kette schneller
+// Am Anfang gemütlich, mit der Schwierigkeit der Kette schneller
 function seriesBeat() {
-  return Math.max(300, 520 - 15 * Math.min(chain.count, 15));
+  return 520 - 220 * chainDifficulty();
 }
 
 function seriesApproach() {
-  return Math.max(850, 1400 - 25 * Math.min(chain.count, 22));
+  return 1400 - 550 * chainDifficulty();
+}
+
+// Mitten in der Krit-Kette, auch schon früh, kann eine Serie starten.
+function maybeChainSeries(now) {
+  if (!hasUnlock('series') || series.items.length || state.boss || chain.count < 2 || now - series.endedAt < SERIES_CHAIN_GAP_MS) return;
+  if (Math.random() < (chain.count <= 4 ? 0.3 : 0.16)) spawnSeries();
+}
+
+const bezier = (sl, t) => [0, 1].map(k => (1 - t) ** 2 * sl.p[k] + 2 * (1 - t) * t * sl.c[k] + t ** 2 * sl.q[k]);
+
+// Bogen an einem Kreis: ein kleiner Schwung zu einem Endpunkt, frei von den anderen Kreisen
+function planSlider(p, others, box) {
+  const len = Math.min(105, box.w * 0.3);
+  for (let tries = 0; tries < 14; tries++) {
+    const a = Math.random() * Math.PI * 2;
+    const q = [p[0] + Math.cos(a) * len, p[1] + Math.sin(a) * len];
+    if (q[0] < box.x || q[0] > box.x + box.w || q[1] < box.y || q[1] > box.y + box.h) continue;
+    const bend = (Math.random() < 0.5 ? -1 : 1) * len * randomBetween(0.35, 0.55);
+    const c = [(p[0] + q[0]) / 2 - Math.sin(a) * bend, (p[1] + q[1]) / 2 + Math.cos(a) * bend];
+    const sl = { p, c, q, ms: Math.round(randomBetween(520, 680)) };
+    const samples = [0.35, 0.65, 1].map(t => bezier(sl, t));
+    if (samples.every(([x, y]) => others.every(o => Math.hypot(o[0] - x, o[1] - y) > 62))) return sl;
+  }
+  return null;
 }
 
 // Muster der Serie in einem eigenen Koordinatensystem (step = Abstand zweier Kreise)
@@ -2051,36 +2125,55 @@ function spawnSeries() {
   // Freie Fläche: unter den Anzeigen oben, über den Fähigkeiten unten
   const box = { x: arena.width * 0.12, y: arena.height * 0.22, w: arena.width * 0.76, h: arena.height * 0.5 };
   const { pts: points } = seriesPoints(n, box);
+  // Bögen (freigeschaltet): meist einer, bei langer Kette auch zwei
+  const sliders = [];
+  if (hasUnlock('slider')) {
+    const count = (Math.random() < 0.55 ? 1 : 0) + (chain.count >= 20 && Math.random() < 0.35 ? 1 : 0);
+    const order = points.map((_, i) => i).sort(() => Math.random() - 0.5);
+    for (const i of order) {
+      if (sliders.filter(Boolean).length >= count) break;
+      const others = points.filter((_, j) => j !== i).concat(sliders.filter(Boolean).map(sl => sl.q));
+      sliders[i] = planSlider(points[i], others, box);
+    }
+  }
   // Am Anfang immer gleichmäßig, später auch Doppeltakt oder schneller werdend
   const rhythms = chain.count >= 4 || state.seriesDone >= 3 ? Object.keys(SERIES_RHYTHMS) : ['gleich'];
   const rhythm = SERIES_RHYTHMS[rhythms[Math.floor(Math.random() * rhythms.length)]];
   let at = 0;
   const delays = points.map((_, i) => {
-    if (i) at += rhythm(i) * beat;
+    if (i) at += rhythm(i) * beat + (sliders[i - 1] ? sliders[i - 1].ms + 0.25 * beat : 0);
     return Math.round(at);
   });
   const layer = $('series');
   layer.replaceChildren();
-  layer.insertAdjacentHTML('beforeend', `<svg class="series-path" viewBox="0 0 ${Math.round(arena.width)} ${Math.round(arena.height)}" aria-hidden="true"><polyline points="${points.map(p => p.map(Math.round).join(',')).join(' ')}"/></svg>`);
-  series.items = points.map(([px, py], i) => {
+  const r = Math.round;
+  const line = points.flatMap((p, i) => (sliders[i] ? [p, sliders[i].q] : [p])).map(p => p.map(r).join(',')).join(' ');
+  const tracks = sliders.map((sl, i) => (sl ? ((d) => `<g class="slider-track" data-slider="${i}"><path class="st-edge" d="${d}"/><path class="st-fill" d="${d}"/><circle cx="${r(sl.q[0])}" cy="${r(sl.q[1])}" r="21"/></g>`)(`M${sl.p.map(r).join(' ')}Q${sl.c.map(r).join(' ')} ${sl.q.map(r).join(' ')}`) : '')).join('');
+  layer.insertAdjacentHTML('beforeend', `<svg class="series-path" viewBox="0 0 ${r(arena.width)} ${r(arena.height)}" aria-hidden="true"><polyline points="${line}"/>${tracks}</svg>`);
+  const toPct = ([x, y]) => [x / arena.width * 100, y / arena.height * 100];
+  series.items = points.map((p, i) => {
+    const [x, y] = toPct(p);
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'flow';
-    el.style.left = `${px / arena.width * 100}%`;
-    el.style.top = `${py / arena.height * 100}%`;
+    el.className = `flow${sliders[i] ? ' slider' : ''}`;
+    el.style.left = `${x}%`;
+    el.style.top = `${y}%`;
     el.style.setProperty('--win', `${approach}ms`);
-    el.setAttribute('aria-label', `Flow-Serie: Kreis ${i + 1} von ${n}`);
+    el.setAttribute('aria-label', `Flow-Serie: Kreis ${i + 1} von ${n}${sliders[i] ? ', gedrückt halten und dem Bogen folgen' : ''}`);
     el.innerHTML = `<span class="flow-ring"></span><span class="flow-num">${i + 1}</span>`;
-    const item = { el, x: px / arena.width * 100, y: py / arena.height * 100, appearAt: 0, deadline: Infinity, done: false, timer: 0 };
+    const item = { el, index: i, x, y, slider: sliders[i] || null, appearAt: 0, deadline: Infinity, done: false, timer: 0 };
     el.addEventListener('pointerdown', e => {
       e.preventDefault();
       e.stopPropagation();
       lastPointerType = e.pointerType;
-      hitSeries(item);
+      if (!seriesReady(item)) return;
+      if (item.slider) startSlide(item, e);
+      else landSeries(item, Date.now() >= item.appearAt + series.approach - SERIES_PERFECT_MS);
     });
+    // Tastatur: Enter/Leertaste zählt als Treffer, auch für Bögen
     el.addEventListener('click', e => {
       e.stopPropagation();
-      if (e.detail === 0) hitSeries(item);
+      if (e.detail === 0 && seriesReady(item)) landSeries(item, false, Boolean(item.slider));
     });
     layer.append(el);
     // Die Kreise erscheinen nacheinander im Takt.
@@ -2091,25 +2184,136 @@ function spawnSeries() {
     }, delays[i]);
     return item;
   });
+  const ball = document.createElement('span');
+  ball.className = 'slider-ball';
+  ball.hidden = true;
+  layer.append(ball);
+  series.ball = ball;
   series.next = 0;
   series.perfect = 0;
   series.approach = approach;
-  if (state.seriesDone < 2) popup('Tippe 1 · 2 · 3 im Takt', 'limit', 50, 12);
+  series.arena = arena;
+  if (state.seriesDone < 2) popup('Tippe die Kreise im Takt', 'limit', 50, 12);
+  else if (sliders.some(Boolean) && state.seriesDone < 6) popup('Bogen: halten und folgen', 'limit', 50, 12);
+}
+
+function seriesReady(item) {
+  return series.items.indexOf(item) === series.next && item.appearAt > 0 && !item.done && !item.holding;
+}
+
+function pointerInArena(e) {
+  const a = $('arena').getBoundingClientRect();
+  return [e.clientX - a.left, e.clientY - a.top];
+}
+
+function placeBall([x, y]) {
+  const a = series.arena;
+  series.ball.style.left = `${x / a.width * 100}%`;
+  series.ball.style.top = `${y / a.height * 100}%`;
+}
+
+// Bogen: gedrückt halten, die Kugel gleitet zum Ende, der Finger folgt ihr.
+function startSlide(item, e) {
+  const now = Date.now();
+  item.holding = true;
+  item.perfectHead = now >= item.appearAt + series.approach - SERIES_PERFECT_MS;
+  item.slideAt = now;
+  item.deadline = Infinity;
+  item.offSince = 0;
+  item.ticks = 0;
+  item.pointer = pointerInArena(e);
+  item.el.classList.add('holding');
+  try {
+    item.el.setPointerCapture(e.pointerId);
+  } catch {
+    // Ohne Capture kommen die Bewegungen trotzdem an, solange der Finger auf dem Kreis startet.
+  }
+  const move = ev => { item.pointer = pointerInArena(ev); };
+  const up = () => {
+    item.release();
+    if (item.holding) releaseSlide(item);
+  };
+  item.release = () => {
+    item.el.removeEventListener('pointermove', move);
+    item.el.removeEventListener('pointerup', up);
+    item.el.removeEventListener('pointercancel', up);
+  };
+  item.el.addEventListener('pointermove', move);
+  item.el.addEventListener('pointerup', up);
+  item.el.addEventListener('pointercancel', up);
+  placeBall(item.slider.p);
+  series.ball.hidden = false;
+  $('series').querySelector(`[data-slider="${item.index}"]`)?.classList.add('active');
+  SFX.slideStart();
+  requestAnimationFrame(() => slideFrame(item));
+}
+
+function slideProgress(item) {
+  return clamp01((Date.now() - item.slideAt) / item.slider.ms);
+}
+
+function slideFrame(item) {
+  if (!item.holding) return;
+  const now = Date.now();
+  const t = slideProgress(item);
+  const pos = bezier(item.slider, t);
+  placeBall(pos);
+  // Großzügig: Der Finger muss nur in der Nähe der Kugel bleiben.
+  if (Math.hypot(item.pointer[0] - pos[0], item.pointer[1] - pos[1]) > SLIDER_FOLLOW_PX) {
+    item.offSince ||= now;
+    if (now - item.offSince > SLIDER_SLIP_MS) return failSlide(item, pos);
+  } else {
+    item.offSince = 0;
+  }
+  const tick = Math.floor(t * 3);
+  if (tick > item.ticks && tick < 3) {
+    item.ticks = tick;
+    SFX.slideTick(tick);
+    haptic();
+  }
+  if (t >= 1) return completeSlide(item);
+  requestAnimationFrame(() => slideFrame(item));
+}
+
+function stopSlide(item) {
+  item.holding = false;
+  item.release?.();
+  item.el.classList.remove('holding');
+  if (series.ball) series.ball.hidden = true;
+}
+
+// Kurz vor dem Ende loslassen zählt noch.
+function releaseSlide(item) {
+  if (slideProgress(item) >= 0.8) completeSlide(item);
+  else failSlide(item, bezier(item.slider, slideProgress(item)));
+}
+
+function completeSlide(item) {
+  stopSlide(item);
+  landSeries(item, item.perfectHead, true);
+}
+
+function failSlide(item, pos) {
+  stopSlide(item);
+  const a = series.arena;
+  popup('Abgerutscht', 'blocked', pos[0] / a.width * 100, pos[1] / a.height * 100 - 8);
+  endSeries(Date.now(), null);
 }
 
 // Ein Kreis der Serie zählt wie ein gezielter Treffer: Combo, Krit-Kette und Krit-Schaden.
-function hitSeries(item) {
-  const i = series.items.indexOf(item);
-  if (i < 0 || i !== series.next || !item.appearAt || item.done) return;
+function landSeries(item, perfect, slid = false) {
+  const i = item.index;
   const now = Date.now();
   clock = now;
   item.done = true;
   series.next++;
-  const perfect = now >= item.appearAt + series.approach - SERIES_PERFECT_MS;
   if (perfect) series.perfect++;
   item.el.classList.add('hit');
   item.el.classList.toggle('perfect', perfect);
   setTimeout(() => item.el.remove(), 420);
+  if (slid) {
+    $('series').querySelector(`[data-slider="${i}"]`)?.classList.add('done');
+  }
   if (now - combo.lastAt > mods.comboWindow) combo.count = 0;
   combo.count++;
   combo.lastAt = now;
@@ -2125,8 +2329,10 @@ function hitSeries(item) {
   state.crits++;
   missionProgress('crits');
   const focus = skillActive('focus', now) ? skillPower('focus') : 1;
-  const dmg = clickValue(now) * comboMult() * focus * critMult * (perfect ? SERIES_PERFECT_MULT : 1) * damageFactor('tap');
-  popup(`${perfect ? 'Perfekt' : 'Treffer'} −${fmt(dmg, 1)}`, perfect ? 'crit perfect' : 'crit', item.x, item.y - 10);
+  const dmg = clickValue(now) * comboMult() * focus * critMult * (perfect ? SERIES_PERFECT_MULT : 1) * (slid ? SLIDER_MULT : 1) * damageFactor('tap');
+  const [px, py] = slid && item.slider ? [item.slider.q[0] / series.arena.width * 100, item.slider.q[1] / series.arena.height * 100] : [item.x, item.y];
+  const label = slid ? (perfect ? 'Perfekter Bogen' : 'Bogen') : (perfect ? 'Perfekt' : 'Treffer');
+  popup(`${label} −${fmt(dmg, 1)}`, perfect ? 'crit perfect' : 'crit', px, py - 10);
   SFX.flow(i, perfect);
   haptic();
   restartAnimation($('glyph'), 'hit');
@@ -2155,6 +2361,7 @@ function finishSeries(now) {
 function endSeries(now, missed) {
   for (const item of series.items) {
     clearTimeout(item.timer);
+    if (item.holding) stopSlide(item);
     if (!item.done) {
       item.el.classList.add('missed');
       setTimeout(() => item.el.remove(), 320);
@@ -2165,8 +2372,13 @@ function endSeries(now, missed) {
     path.classList.add('out');
     setTimeout(() => path.remove(), 320);
   }
+  series.ball?.remove();
+  series.ball = null;
   if (missed) popup('Verpasst', 'blocked', missed.x, missed.y - 8);
   series.items = [];
+  series.endedAt = now;
+  // Während der Serie lief die Krit-Kette nicht ab; danach gibt es ein frisches Zeitfenster.
+  if (chain.count > 0) chain.lastAt = now;
   nextSeriesAt = now + randomBetween(SERIES_MIN_MS, SERIES_MAX_MS) / mods.seriesFreq;
 }
 
@@ -2178,7 +2390,7 @@ function updateSeries(now) {
     if (item && now > item.deadline) endSeries(now, item);
     return;
   }
-  if (now >= nextSeriesAt && !state.boss && !document.hidden && state.clicks >= 10) spawnSeries();
+  if (now >= nextSeriesAt && hasUnlock('series') && !state.boss && !document.hidden) spawnSeries();
 }
 
 // ---------- Angriffe des Wochenlimits ----------
@@ -2833,22 +3045,24 @@ function renderGenerators() {
 }
 
 function renderUpgrades() {
-  const available = UPGRADES
-    .filter(u => !state.upgrades.has(u.id) && u.unlocked(state))
-    .sort((a, b) => a.cost - b.cost);
+  const available = [
+    ...UNLOCKS.filter(u => !upgradeOwned(u) && u.unlocked(state)),
+    ...UPGRADES.filter(u => !upgradeOwned(u) && u.unlocked(state)).sort((a, b) => a.cost - b.cost),
+  ];
   const key = available.map(u => u.id).join(',');
   const container = $('upgrades');
   if (key !== upgradesKey) {
     upgradesKey = key;
     container.replaceChildren(...available.map(u => {
       const btn = document.createElement('button');
-      btn.className = 'upgrade';
+      btn.className = `upgrade${u.key ? ' unlock' : ''}`;
       btn.dataset.id = u.id;
       btn.innerHTML = `
         <span class="tile" style="--tile:${tileBg(u.colors)}">${icon(u.icon)}${u.badge ? `<span class="tile-badge">${u.badge}</span>` : ''}</span>
         <span class="upgrade-name">${u.name}</span>
         <span class="upgrade-desc">${u.flavor}</span>
         <span class="upgrade-effect">${u.effect}</span>
+        ${u.key ? '<span class="upgrade-tag">Freischaltung · bleibt dauerhaft</span>' : ''}
         <span class="price">${fmt(upgradeCost(u))}${icon('token')}</span>`;
       btn.addEventListener('click', () => buyUpgrade(u));
       return btn;
@@ -2857,7 +3071,7 @@ function renderUpgrades() {
   }
   let affordable = 0;
   for (const btn of container.children) {
-    const u = UPGRADES.find(x => x.id === btn.dataset.id);
+    const u = UNLOCKS.find(x => x.id === btn.dataset.id) || UPGRADES.find(x => x.id === btn.dataset.id);
     btn.disabled = state.tokens < upgradeCost(u);
     if (!btn.disabled) affordable++;
   }
@@ -2967,7 +3181,9 @@ function renderEnemy(now) {
   $('meter-used').textContent = `${Math.floor(used * 100)} % verbraucht`;
   $('meter-left').textContent = `noch ${fmtSpan(left * t.meter.span)}`;
   $('hp-text').textContent = `${fmt(Math.ceil(t.unit.hp))} / ${fmt(Math.ceil(t.maxHp))} HP`;
-  $('tap-hint').hidden = state.clicks >= 3 || chain.count >= 2;
+  const hint = hasUnlock('crit') ? 'Tippe auf die KI. Der leuchtende Punkt trifft kritisch.' : 'Tippe auf die KI, um ihr Limit zu verbrauchen.';
+  if ($('tap-hint').textContent !== hint) $('tap-hint').textContent = hint;
+  $('tap-hint').hidden = (state.clicks >= 3 && !(hasUnlock('crit') && state.crits === 0)) || chain.count >= 2;
   const locked = now < debuffs.lock;
   const throttled = locked || (t.trait === 'ratelimit' && now < throttledUntil);
   $('throttle').hidden = !throttled;
@@ -2991,7 +3207,7 @@ function renderArenaHud(now) {
   const t = target();
   const chainActive = chain.count >= 2;
   $('chain').hidden = !chainActive;
-  const chainLeft = chain.count > 0 ? clamp01(1 - (now - chain.lastAt) / chainWindow()) : 0;
+  const chainLeft = chain.count > 0 ? (series.items.length ? 1 : clamp01(1 - (now - chain.lastAt) / chainWindow())) : 0;
   if (chainActive) {
     $('chain-count').textContent = `Krit-Kette ${chain.count}`;
     $('chain-mult').textContent = `nächster Krit ×${fmt(chainCritMult(), 1)}`;
@@ -3000,8 +3216,9 @@ function renderArenaHud(now) {
   const blind = now < debuffs.blind;
   const spot = $('weakspot');
   $('enemy').style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
-  spot.hidden = blind;
-  for (const f of document.querySelectorAll('.weakspot.fake')) f.hidden = blind || t.trait !== 'decoy';
+  const crits = hasUnlock('crit');
+  spot.hidden = blind || !crits;
+  for (const f of document.querySelectorAll('.weakspot.fake')) f.hidden = blind || !crits || t.trait !== 'decoy';
   spot.style.setProperty('--chain-left', String(chainLeft));
   spot.classList.toggle('chained', chain.count > 0);
   spot.classList.toggle('urgent', chain.count > 0 && chainLeft < 0.35);
@@ -3507,7 +3724,7 @@ function tick() {
     teleportAt = now;
     teleportEnemy();
   }
-  if (chain.count > 0 && now - chain.lastAt > chainWindow()) breakChain(now);
+  if (chain.count > 0 && now - chain.lastAt > chainWindow() && !series.items.length) breakChain(now);
   else if (chain.count === 0 && now - weak.movedAt > WEAKSPOT_MOVE_MS) moveWeakSpot(now);
   driftWeakSpot(Math.min(Math.max(elapsed, 0), 250));
   checkUltra(now);

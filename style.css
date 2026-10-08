@@ -490,6 +490,8 @@ button { font: inherit; color: inherit; }
 .upgrade-name { font-weight: 600; font-size: 0.9rem; line-height: 1.25; }
 .upgrade-desc { font-size: 0.78rem; color: var(--muted); flex: 1; }
 .upgrade-effect { font-size: 0.75rem; font-weight: 600; color: var(--accent-ink); }
+.upgrade.unlock { background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--fill); box-shadow: inset 0 0 0 1.5px var(--accent-soft); }
+.upgrade-tag { font-size: 0.7rem; font-weight: 600; color: var(--muted); }
 .tile { position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(0, 0, 0, 0.12); }
 .tile-badge {
   position: absolute;
@@ -1282,6 +1284,31 @@ button { font: inherit; color: inherit; }
 @keyframes flowHit { 35% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; } to { transform: translate(-50%, -50%) scale(1.65); opacity: 0; } }
 .flow.missed { pointer-events: none; animation: flowMiss 0.3s var(--ease) forwards; }
 @keyframes flowMiss { to { transform: translate(-50%, -50%) scale(0.6); opacity: 0; } }
+/* Bögen: gedrückt halten und der Kugel folgen */
+.flow.slider { touch-action: none; }
+.flow.holding { transform: translate(-50%, -50%) scale(0.9); box-shadow: 0 0 0 3px #fff, 0 0 0 7px rgba(217, 119, 87, 0.35), 0 6px 18px rgba(217, 119, 87, 0.45); }
+.flow.holding .flow-ring { display: none; }
+.slider-track path { fill: none; stroke-linecap: round; }
+.slider-track .st-edge { stroke: var(--card); stroke-width: 52; opacity: 0.9; }
+.slider-track .st-fill { stroke: var(--accent); stroke-width: 44; opacity: 0.3; }
+.slider-track circle { fill: var(--card); stroke: var(--accent); stroke-width: 3; opacity: 0.85; }
+.slider-track.active .st-fill { opacity: 0.5; }
+.slider-track.active circle { opacity: 1; }
+.slider-track.done { opacity: 0; transition: opacity 0.3s; }
+.slider-ball {
+  position: absolute;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #fff, #ffe2d6);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 18px rgba(217, 119, 87, 0.7);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+/* Folge-Bereich: so weit darf der Finger weg sein */
+.slider-ball::after { content: ""; position: absolute; inset: -40px; border-radius: 50%; border: 2px dashed rgba(217, 119, 87, 0.35); }
+
 .popup.crit.perfect { color: #ffb800; font-size: 1.4rem; text-shadow: 0 2px 10px rgba(255, 184, 0, 0.35); }
 
 /* ---------- Prestige & Fähigkeitenbaum ---------- */
