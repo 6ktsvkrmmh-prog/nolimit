@@ -42,8 +42,8 @@ exportieren und dort wieder importieren.
   kritischen Treffer. Treffer in Folge bilden eine Krit-Kette mit +25 % Krit-Schaden pro Glied. Die ersten
   20 bis 30 Glieder sind entspannt (3,4 s Zeit, großer Punkt), danach schrumpft das Zeitfenster bis 0,8 s
   (ab Glied 75), der Punkt wird kleiner und wandert immer schneller. Ein Fehltipp lässt die Kette reißen. Dazu baut schnelles Tippen eine Combo bis ×2 auf.
-- **Flow-Serien:** Ab und zu, oft mitten in der Krit-Kette, erscheinen 2 bis 5 nummerierte Kreise nacheinander im
-  Takt (je länger die Kette, desto mehr), in wechselnden Mustern (Linie, Bogen, Zickzack, Vieleck, Treppe, freier Pfad) und Rhythmen (gleichmäßig,
+- **Flow-Serien:** Ab und zu, oft mitten in der Krit-Kette, erscheinen 3 bis 10 nummerierte Kreise nacheinander im
+  Takt (je länger die Kette, desto mehr; auf schmalen Handys höchstens 6), mal am Rand um die KI, mal mittig, in wechselnden Mustern (Linie, Bogen, Zickzack, Vieleck, Treppe, freier Pfad) und Rhythmen (gleichmäßig,
   Doppeltakt, schneller werdend). Antippen, bevor sich ihr Ring schließt; genau beim Schließen gibt es „Perfekt“.
   Bögen: gedrückt halten und zügig entlang des Schwungs wischen – die Kugel gleitet mit Kometenschweif hinterher,
   die Spur füllt sich, ein Ton steigt mit (zählen doppelt, in unter 0,26 s als Blitzbogen noch mehr).

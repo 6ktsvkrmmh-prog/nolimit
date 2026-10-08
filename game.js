@@ -2427,11 +2427,13 @@ const series = { items: [], next: 0, perfect: 0, approach: 0, endedAt: 0, ball: 
 let nextSeriesAt = Date.now() + randomBetween(6000, 10_000);
 
 // 2 bis 5 Kreise – je länger die Krit-Kette, desto mehr
-// 3 bis 7 Kreise – je länger die Krit-Kette, desto mehr
-function seriesLength() {
-  const c = chain.count;
-  const base = c < 5 ? 3 : c < 15 ? 4 : c < 35 ? 5 : 6;
-  return Math.min(7, Math.max(3, Math.round(base + randomBetween(-0.9, 0.9))));
+// 3 bis 10 Kreise – je länger die Krit-Kette, desto mehr; ab und zu eine extra lange Serie.
+// In schmalen Arenen (Handy hoch) höchstens 6, damit sich nichts überlappt.
+function seriesLength(arenaWidth = $('arena').clientWidth) {
+  const base = 3.5 + Math.min(chain.count, 50) / 50 * 4.5;
+  const bonus = Math.random() < 0.15 ? 2 : 0;
+  const cap = arenaWidth < 480 ? 6 : 10;
+  return Math.min(cap, Math.max(3, Math.round(base + bonus + randomBetween(-1.5, 1.5))));
 }
 
 const SERIES_GAP_PX = 48;  // Mindestabstand zweier Kreise (Kreise sind 40 px groß)
@@ -2593,17 +2595,23 @@ function seriesPoints(n, box, tries = 0) {
 
 function spawnSeries() {
   const arena = $('arena').getBoundingClientRect();
-  const n = seriesLength();
+  const n = seriesLength(arena.width);
   const beat = seriesBeat();
   const approach = seriesApproach();
-  // Meist am Rand rund um die KI, manchmal als freies Muster über ihr
   const zones = hudZones(arena);
   const box = { x: arena.width * 0.1, y: arena.height * 0.18, w: arena.width * 0.8, h: arena.height * 0.58, zones };
-  const points = (Math.random() < 0.75 && edgePlacement(n, arena, zones)) || seriesPoints(n, box).pts;
-  // Bögen (freigeschaltet): meist einer, bei langer Kette auch zwei
+  // Mal am Rand rund um die KI, mal mittig über ihr
+  // (passt der Rand nicht, z. B. auf dem Handy, dort mit ein, zwei Kreisen weniger)
+  let points = null;
+  if (Math.random() < 0.5) for (let k = n; k >= Math.max(3, n - 2) && !points; k--) points = edgePlacement(k, arena, zones);
+  points ||= seriesPoints(n, box).pts;
+  // Kreise, die trotz allem unter einer Anzeige liegen, fallen weg
+  const clear = points.filter(p => !inZone(p, zones));
+  if (clear.length >= 3) points = clear;
+  // Bögen (freigeschaltet): meist einer, bei langen Serien und langer Kette auch mehr
   const sliders = [];
   if (hasUnlock('slider')) {
-    const count = (Math.random() < 0.55 ? 1 : 0) + (chain.count >= 20 && Math.random() < 0.35 ? 1 : 0);
+    const count = (Math.random() < 0.55 ? 1 : 0) + (chain.count >= 20 && Math.random() < 0.35 ? 1 : 0) + Math.floor(Math.max(0, points.length - 5) / 3);
     const order = points.map((_, i) => i).sort(() => Math.random() - 0.5);
     for (const i of order) {
       if (sliders.filter(Boolean).length >= count) break;
@@ -2634,7 +2642,7 @@ function spawnSeries() {
     el.style.left = `${x}%`;
     el.style.top = `${y}%`;
     el.style.setProperty('--win', `${approach}ms`);
-    el.setAttribute('aria-label', `Flow-Serie: Kreis ${i + 1} von ${n}${sliders[i] ? ', gedrückt halten und dem Bogen folgen' : ''}`);
+    el.setAttribute('aria-label', `Flow-Serie: Kreis ${i + 1} von ${points.length}${sliders[i] ? ', gedrückt halten und dem Bogen folgen' : ''}`);
     el.innerHTML = `<span class="flow-ring"></span><span class="flow-num">${i + 1}</span>`;
     const item = { el, index: i, x, y, slider: sliders[i] || null, appearAt: 0, deadline: Infinity, done: false, timer: 0 };
     el.addEventListener('pointerdown', e => {
