@@ -18,8 +18,8 @@ const SESSION_STEP_MIN = 5;
 const WEEKLY_STEP_MIN = 15;
 
 const COST_GROWTH = 1.15;
-const PRESTIGE_BASE = 1e6;
-const INSIGHT_BONUS = 0.1;
+const PRESTIGE_MIN_WAVE = 10;      // ab dieser Welle kann der Kontext komprimiert werden
+const VERSION_BONUS = 0.03;        // jede Kontext-Version: +3 % Schaden und Tokens
 const ACHIEVEMENT_BONUS = 0.01;
 const BOSS_WIN_BONUS = 0.25;
 const FRENZY_MULT = 7;
@@ -34,9 +34,17 @@ const ENEMY_HP_GROWTH = 1.038; // pro KI, also etwa ×1,45 pro Welle
 const ULTRA_HP_MULT = 2.5;
 const LOOT_MULT = 0.5;
 const WAVE_TOKEN_BONUS = 0.02;
-const WEEKLY_GOAL = 500;
-const WEEKLY_STAGES = 5;
-const BOSS_HP_MULT = 100;
+// Das Wochenlimit: am Ende jeder 50. Welle (alle 500 Level) statt der Ultra-KI ein Boss, der zurückschlägt.
+const BOSS_EVERY_WAVES = 50;
+const BOSS_HP_MULT = 30;           // × Limit der Ultra-KI dieser Welle …
+const BOSS_TIER_GROWTH = 1.5;      // … und jeder weitere Boss noch einmal stärker
+const BOSS_TIME_MS = 60_000;
+const BOSS_INSIGHTS = 25;          // Erkenntnisse pro Boss-Stufe
+const BOSS_PARRY_DAMAGE = 0.01;    // jeder abgewehrte Angriff kostet ihn 1 % seines Limits
+const BOSS_ATTACK_DELAY_MS = 2500; // Schonfrist zu Beginn des Kampfes
+const BOSS_HEAL = 0.08;
+const BOSS_DRAIN = 0.05;
+const BOSS_COOLDOWN_MS = 15_000;
 
 // Kampf-Würze
 const COMBO_WINDOW_MS = 1500;   // so lange darf zwischen zwei Taps liegen
@@ -63,8 +71,22 @@ const REGEN_PER_S = 0.03;
 const RATE_LIMIT_TAPS = 8;      // mehr Taps pro Sekunde lösen „429“ aus
 const RATE_LIMIT_MS = 1500;
 const FORK_HP = 0.4;
+const SWARM_HP = 0.25;
+const SHIELD_CYCLE_MS = 4000;      // Schildphasen: alle 4 s …
+const SHIELD_UP_MS = 1500;         // … 1,5 s lang ein Schild …
+const SHIELD_FACTOR = 0.1;         // … das 90 % des Schadens schluckt
+const HARDEN_STEP = 0.06;          // Härtet aus: pro Sekunde 6 % weniger Schaden …
+const HARDEN_MAX = 0.6;            // … bis höchstens 60 %
+const FLEETING_MS = 15_000;
+const FLEETING_STEAL = 0.03;
+const GLITCH_CHANCE = 0.25;
+const TELEPORT_MS = 2500;
+const NEW_TRAIT_WAVE = 8;          // ab hier tauchen die neuen Eigenschaften auch zufällig auf
 const SKILL_MAX_LEVEL = 10;
 const SKILL_COST_GROWTH = 2.6;
+const COOLDOWN_FLOOR = 0.5;        // Abklingzeiten lassen sich höchstens halbieren
+const VORTEX_CHANCE = 1 / 400;     // Dark-Vortex-Variante: super selten
+const VORTEX_LOOT = 5;
 const MISSION_COUNT = 3;
 
 // Die Lebensleiste ist als Claude-Limit gestaltet: Die HP werden als „verbleibende Zeit“
@@ -139,6 +161,37 @@ const MODELS = [
   { name: 'Glückstreffer', family: 'clover', hue: 145, quip: 'Liegt manchmal zufällig richtig.' },
   { name: 'Windmacher', family: 'pinwheel', hue: 200, quip: 'Macht viel Wind um wenig.' },
   { name: 'Kernschmelze', family: 'atom', hue: 20, quip: 'Überhitzt bei jeder dritten Frage.' },
+  // Neue Generation: taucht nach und nach ab Welle 3 auf und bringt immer ihre eigene Fähigkeit mit.
+  { name: 'Firewallon', family: 'hexnode', hue: 205, wave: 3, trait: 'shield', quip: 'Lässt nur durch, was im Handbuch steht.' },
+  { name: 'Inkognito', family: 'pixel', hue: 265, wave: 4, trait: 'stealth', quip: 'Hat keinen Verlauf. Angeblich.' },
+  { name: 'Kontextfresser', family: 'signal', hue: 28, wave: 6, trait: 'greedy', quip: 'Ein Prompt, eine Million Tokens.' },
+  { name: 'Quantisierung', family: 'pixel', hue: 190, wave: 7, trait: 'shrink', quip: 'Vier Bit reichen doch auch.' },
+  { name: 'Beta-Release', family: 'chevron', hue: 145, wave: 9, trait: 'fleeting', quip: 'Morgen schon wieder eingestellt.' },
+  { name: 'Fata Morgana', family: 'bloom', hue: 40, wave: 10, trait: 'decoy', quip: 'Zeigt dir genau das, was du sehen willst.' },
+  { name: 'Lastverteiler', family: 'hexnode', hue: 170, wave: 12, trait: 'teleport', quip: 'Heute hier, gleich im nächsten Rechenzentrum.' },
+  { name: 'Bitfehler', family: 'pixel', hue: 330, wave: 13, trait: 'glitch', quip: 'Eine Eins zu viel, und alles ist anders.' },
+  { name: 'Compliance-Bot', family: 'cube', hue: 215, wave: 15, trait: 'silence', quip: 'Dazu darf ich leider nichts sagen.' },
+  { name: 'Robustus', family: 'hexnode', hue: 15, wave: 16, trait: 'harden', quip: 'Wird mit jedem Angriff zäher.' },
+  { name: 'Mixture-of-Experts', family: 'bloom', hue: 280, wave: 18, trait: 'swarm', quip: 'Acht Experten, keiner zuständig.' },
+  { name: 'Guardrail', family: 'cube', hue: 120, wave: 19, trait: 'shield', quip: 'Lehnt höflich alles ab.' },
+  { name: 'Schattenmodell', family: 'spiral', hue: 250, wave: 21, trait: 'stealth', quip: 'Läuft heimlich im Hintergrund.' },
+  { name: 'Abo-Falle', family: 'chevron', hue: 48, wave: 22, trait: 'greedy', quip: 'Jetzt upgraden, nur 200 € im Monat.' },
+  { name: 'Mini-Distill', family: 'spiral', hue: 175, wave: 24, trait: 'shrink', quip: 'Halb so groß, doppelt so überzeugt.' },
+  { name: 'Demo-Modus', family: 'cube', hue: 300, wave: 25, trait: 'fleeting', quip: 'Läuft genau so lange wie die Präsentation.' },
+  { name: 'Quellenfinder', family: 'signal', hue: 200, wave: 27, trait: 'decoy', quip: 'Zitiert Studien, die es nie gab.' },
+  { name: 'Edge-Node', family: 'cube', hue: 30, wave: 28, trait: 'teleport', quip: 'Immer am nächsten Ort. Nur nie bei dir.' },
+  { name: 'Artefakt', family: 'signal', hue: 310, wave: 30, trait: 'glitch', quip: 'Sechs Finger an jeder Hand.' },
+  { name: 'Stummschalter', family: 'chevron', hue: 0, wave: 31, trait: 'silence', quip: 'Hat deine Fähigkeiten vorsorglich deaktiviert.' },
+  { name: 'Patchday', family: 'bloom', hue: 100, wave: 33, trait: 'harden', quip: 'Schließt jede Lücke, sobald du sie findest.' },
+  { name: 'Multiagento', family: 'hexnode', hue: 235, wave: 34, trait: 'swarm', quip: 'Delegiert alles an seine Kopien.' },
+  { name: 'Moderatorin', family: 'bloom', hue: 340, wave: 36, trait: 'shield', quip: 'Hat das als unangemessen markiert.' },
+  { name: 'Darkpattern', family: 'chevron', hue: 270, wave: 37, trait: 'stealth', quip: 'Versteckt den Abbrechen-Knopf.' },
+  { name: 'Upsellinator', family: 'signal', hue: 55, wave: 39, trait: 'greedy', quip: 'Hätten Sie gern das Pro-Modell dazu?' },
+  { name: 'Zipformer', family: 'cube', hue: 160, wave: 40, trait: 'shrink', quip: 'Packt alles zusammen. Auch deine Frage.' },
+  { name: 'Wartelistus', family: 'spiral', hue: 20, wave: 42, trait: 'fleeting', quip: 'Nur für kurze Zeit verfügbar.' },
+  { name: 'Rauschmodell', family: 'spiral', hue: 290, wave: 43, trait: 'glitch', quip: 'Hört Muster im weißen Rauschen.' },
+  { name: 'NDA-tron', family: 'pixel', hue: 220, wave: 45, trait: 'silence', quip: 'Alles vertraulich, auch deine Knöpfe.' },
+  { name: 'Gegenspieler', family: 'pixel', hue: 5, wave: 46, trait: 'harden', quip: 'Trainiert gegen dich, während du tippst.' },
 ];
 const BOSS = { name: 'Das Wochenlimit', family: 'boss', hue: 354, quip: 'Sieben Tage. Ein Limit. Kein Entkommen.' };
 
@@ -265,8 +318,8 @@ const UPGRADES = [
     icon: 'flame', colors: ['#ff9f0a', '#ff375f'], cost: 20_000, unlocked: s => s.maxCombo >= 30, apply: m => { m.comboWindow += 1000; } },
   { id: 'combo-2', name: 'Langer Atem', flavor: 'Hundert Taps sind erst der Anfang.', effect: 'Combo bis ×3',
     icon: 'flame', colors: ['#d9363e', '#ff9f0a'], cost: 3e6, unlocked: s => s.maxCombo >= 90, apply: m => { m.comboCap = 200; } },
-  { id: 'skill-1', name: 'Schnelleres Inferencing', flavor: 'Weniger warten, mehr wirken.', effect: 'Abklingzeiten −30 %',
-    icon: 'gauge', colors: ['#30d158', '#0a84ff'], cost: 1e6, unlocked: s => s.skillUses >= 5, apply: m => { m.cooldown *= 0.7; } },
+  { id: 'skill-1', name: 'Schnelleres Inferencing', flavor: 'Weniger warten, mehr wirken.', effect: 'Abklingzeiten −20 %',
+    icon: 'gauge', colors: ['#30d158', '#0a84ff'], cost: 1e6, unlocked: s => s.skillUses >= 5, apply: m => { m.cooldown *= 0.8; } },
   { id: 'chain-1', name: 'Kettenreaktion', flavor: 'Ein Treffer zieht den nächsten nach sich.', effect: 'Krit-Kette hält 0,4 s länger',
     icon: 'chain', colors: ['#ff375f', '#d97757'], cost: 75_000, unlocked: s => s.bestChain >= 6, apply: m => { m.chainWindow += 400; } },
   { id: 'chain-2', name: 'Präzisionsoptik', flavor: 'Auch kleine Ziele bleiben groß genug.', effect: 'Schwachstelle schrumpft halb so schnell',
@@ -282,6 +335,18 @@ const TRAITS = {
   regen: { name: 'Regeneriert', icon: 'heal', desc: 'Stellt 3 % ihres Limits pro Sekunde wieder her.' },
   ratelimit: { name: 'Ratenlimit', icon: 'stop', desc: `Mehr als ${RATE_LIMIT_TAPS} Taps pro Sekunde? 429 – kurz gesperrt.` },
   fork: { name: 'Forkt sich', icon: 'fork', desc: 'Spaltet beim Sieg eine Kopie mit 40 % Limit ab.' },
+  // Neue Generation
+  shield: { name: 'Schildphasen', icon: 'barrier', wave: NEW_TRAIT_WAVE, desc: `Hebt alle ${SHIELD_CYCLE_MS / 1000} s ein Schild: ${fmtSec(SHIELD_UP_MS)} lang 90 % weniger Schaden.` },
+  stealth: { name: 'Getarnt', icon: 'eyeoff', wave: NEW_TRAIT_WAVE, desc: 'Die Schwachstelle blitzt nur kurz auf.' },
+  decoy: { name: 'Halluziniert', icon: 'copy', wave: NEW_TRAIT_WAVE, desc: 'Zeigt zwei falsche Schwachstellen. Triffst du eine, reißt die Krit-Kette.' },
+  teleport: { name: 'Teleportiert', icon: 'teleport', wave: NEW_TRAIT_WAVE, desc: `Springt alle ${fmtSec(TELEPORT_MS)} an eine andere Stelle.` },
+  shrink: { name: 'Komprimiert sich', icon: 'shrink', wave: NEW_TRAIT_WAVE, desc: 'Wird mit sinkendem Limit immer kleiner.' },
+  silence: { name: 'Schweigepflicht', icon: 'mute', wave: NEW_TRAIT_WAVE, desc: 'Deine Fähigkeiten sind gesperrt, solange sie lebt.' },
+  harden: { name: 'Härtet aus', icon: 'diamond', wave: NEW_TRAIT_WAVE, desc: `Nimmt jede Sekunde ${HARDEN_STEP * 100} % weniger Schaden, bis −${HARDEN_MAX * 100} %.` },
+  greedy: { name: 'Token-Fresser', icon: 'coins', wave: NEW_TRAIT_WAVE, desc: 'Treffer bringen nur halb so viele Tokens, dafür doppelte Beute.' },
+  glitch: { name: 'Glitcht', icon: 'glitch', wave: NEW_TRAIT_WAVE, desc: 'Jeder vierte Tap geht ins Leere.' },
+  fleeting: { name: 'Flüchtig', icon: 'hourglass', wave: NEW_TRAIT_WAVE, desc: `Haut nach ${FLEETING_MS / 1000} s ab, ohne Beute, und nimmt ${FLEETING_STEAL * 100} % deiner Tokens mit.` },
+  swarm: { name: 'Schwarm', icon: 'swarm', wave: NEW_TRAIT_WAVE, desc: 'Zerfällt beim Sieg in zwei Kopien mit je 25 % Limit.' },
 };
 const TRAIT_KEYS = Object.keys(TRAITS);
 // Manche Modelle haben ihre Eigenschaft immer.
@@ -290,29 +355,129 @@ const SIGNATURE_TRAITS = {
   Rekursor: 'fork', 'Endlos-Loop': 'fork', Schleimbot: 'regen', Blobby: 'regen', Hypezilla: 'evasive', Turbolix: 'evasive',
 };
 
+// Angriffe des Wochenlimits: Wer den roten Kreis nicht rechtzeitig antippt, bekommt einen Negativ-Effekt.
+const DEBUFFS = {
+  helpers: { name: 'Helfer pausiert', icon: 'agents', ms: 8000 },
+  lock: { name: 'Taps gesperrt', icon: 'lock', ms: 3000 },
+  blind: { name: 'Schwachstelle verdeckt', icon: 'eyeoff', ms: 6000 },
+  combo: { name: 'Combo und Kette weg', icon: 'flame' },
+  drain: { name: `${BOSS_DRAIN * 100} % Tokens verloren`, icon: 'token' },
+  heal: { name: `Boss heilt ${BOSS_HEAL * 100} %`, icon: 'heal' },
+  cooldown: { name: `Abklingzeiten +${BOSS_COOLDOWN_MS / 1000} s`, icon: 'clock' },
+};
+const DEBUFF_KEYS = Object.keys(DEBUFFS);
+const BOSS_TRAIT = { name: 'Schlägt zurück', icon: 'bolt', desc: 'Tippe die roten Kreise an, bevor sich ihr Ring schließt.' };
+
 // Fähigkeiten wie bei Tap Titans: ab einer Welle freischalten, dann mit Tokens bis Stufe 10 leveln.
 // power(L) ist die Stärke auf Stufe L, duration/cooldown in Millisekunden.
 // Die IDs „bomb“, „storm“ und „overclock“ stammen aus älteren Spielständen und bleiben.
 const SKILLS = [
   { id: 'bomb', name: 'Superschlag', short: 'Schlag', icon: 'bolt', colors: ['#ff9f0a', '#d9363e'], wave: 3, cost: 300,
-    power: L => 10 + 10 * L, cooldown: L => Math.max(40, 62 - 2 * L) * 1000, duration: () => 0,
+    power: L => 10 + 10 * L, cooldown: L => (120 - 3 * L) * 1000, duration: () => 0,
     describe: L => `Sofort ${10 + 10 * L} s Helfer-Schaden plus ${20 + 10 * L} Taps` },
-  { id: 'midas', name: 'Viraler Hype', short: 'Hype', icon: 'megaphone', colors: ['#ffcc00', '#ff9f0a'], wave: 6, cost: 2500,
-    power: L => 1.5 + 0.5 * L, cooldown: () => 90_000, duration: L => (14 + L) * 1000,
+  { id: 'midas', name: 'Viraler Hype', short: 'Hype', icon: 'megaphone', colors: ['#ffcc00', '#ff9f0a'], wave: 6, cost: 2500, mult: true,
+    power: L => 1.5 + 0.5 * L, cooldown: () => 180_000, duration: L => (14 + L) * 1000,
     describe: L => `Tokens ×${fmt(1.5 + 0.5 * L, 1)} für ${14 + L} s` },
   { id: 'storm', name: 'Prompt-Sturm', short: 'Sturm', icon: 'storm', colors: ['#32ade6', '#5e5ce6'], wave: 9, cost: 15_000,
-    power: L => 8 + 2 * L, cooldown: () => 60_000, duration: L => (6 + L) * 1000,
+    power: L => 8 + 2 * L, cooldown: () => 120_000, duration: L => (6 + L) * 1000,
     describe: L => `${8 + 2 * L} automatische Taps pro Sekunde für ${6 + L} s` },
   { id: 'crit', name: 'Exploit-Modus', short: 'Exploit', icon: 'crosshair', colors: ['#ff375f', '#bf5af2'], wave: 13, cost: 120_000,
-    power: L => 25 + 5 * L, cooldown: () => 75_000, duration: L => (8 + L) * 1000,
+    power: L => 25 + 5 * L, cooldown: () => 150_000, duration: L => (8 + L) * 1000,
     describe: L => `${25 + 5 * L} % Chance auf kritische Treffer für ${8 + L} s` },
-  { id: 'focus', name: 'Hyperfokus', short: 'Fokus', icon: 'flame', colors: ['#ff6b3d', '#ff375f'], wave: 17, cost: 1e6,
-    power: L => 1.5 + 0.5 * L, cooldown: () => 70_000, duration: L => (12 + L) * 1000,
+  { id: 'focus', name: 'Hyperfokus', short: 'Fokus', icon: 'flame', colors: ['#ff6b3d', '#ff375f'], wave: 17, cost: 1e6, mult: true,
+    power: L => 1.5 + 0.5 * L, cooldown: () => 140_000, duration: L => (12 + L) * 1000,
     describe: L => `Tap-Schaden ×${fmt(1.5 + 0.5 * L, 1)} für ${12 + L} s` },
-  { id: 'overclock', name: 'Overclock', short: 'Overclock', icon: 'gauge', colors: ['#30d158', '#0a84ff'], wave: 22, cost: 8e6,
-    power: L => 1.5 + 0.5 * L, cooldown: () => 100_000, duration: L => (12 + L) * 1000,
+  { id: 'overclock', name: 'Overclock', short: 'Overclock', icon: 'gauge', colors: ['#30d158', '#0a84ff'], wave: 22, cost: 8e6, mult: true,
+    power: L => 1.5 + 0.5 * L, cooldown: () => 180_000, duration: L => (12 + L) * 1000,
     describe: L => `Alle Helfer ×${fmt(1.5 + 0.5 * L, 1)} für ${12 + L} s` },
 ];
+
+// ---------- Fähigkeitenbaum (Prestige) ----------
+// Fünf Äste à zehn Knoten. Eine Reihe öffnet sich ab einer Kontext-Version (Anzahl Prestiges),
+// ein Knoten braucht seinen Vorgänger im selben Ast. Bezahlt wird mit Erkenntnissen.
+const TREE_BRANCHES = [
+  { id: 'power', name: 'Rechen\u00adkraft', icon: 'bolt', colors: ['#ff6b3d', '#d9363e'] },
+  { id: 'auto', name: 'Automati\u00adsierung', icon: 'agents', colors: ['#32ade6', '#5e5ce6'] },
+  { id: 'econ', name: 'Ökonomie', icon: 'token', colors: ['#ffcc00', '#ff9f0a'] },
+  { id: 'aim', name: 'Präzision', icon: 'crosshair', colors: ['#ff375f', '#bf5af2'] },
+  { id: 'ctrl', name: 'Kontrolle', icon: 'gauge', colors: ['#30d158', '#0fa3a3'] },
+];
+const TREE_ROW_VERSION = [0, 2, 4, 8, 15, 25, 40, 70, 120, 200];
+const TREE_ROW_COST = [1, 2, 4, 8, 15, 30, 60, 120, 250, 500];
+
+const pct = x => `${fmt(x * 100, 1)} %`;
+const times = x => `×${fmt(x, x < 100 ? 2 : 0)}`;
+
+// [id, Name, Icon, max. Stufe, Kostenwachstum, Beschreibung(L), Wirkung(m, L)] – Reihe = Position im Ast
+const TREE_SPEC = {
+  power: [
+    ['p-grad', 'Gradienten\u00adabstieg', 'trend', 100, 1.12, L => `Tap-Schaden ${times(1.15 ** L)}`, (m, L) => { m.click *= 1.15 ** L; }],
+    ['p-wucht', 'Prompt-Wucht', 'wand', 20, 1.4, L => `Taps +${fmt(0.5 * L, 1)} % deines Schadens/s`, (m, L) => { m.clickDps += 0.005 * L; }],
+    ['p-batch', 'Batch-Verarbeitung', 'layers', 20, 1.4, L => `${3 * L} % Chance auf Doppeltap`, (m, L) => { m.doubleTap += 0.03 * L; }],
+    ['p-deep', 'Tiefe Netze', 'neuro', 100, 1.13, L => `Gesamter Schaden ${times(1.1 ** L)}`, (m, L) => { m.global *= 1.1 ** L; m.click *= 1.1 ** L; }],
+    ['p-heads', 'Aufmerksamkeits\u00adköpfe', 'cursor', 25, 1.35, L => `${L} automatische Taps pro Sekunde`, (m, L) => { m.autoTap += L; }],
+    ['p-pierce', 'Panzerbrecher', 'shield', 5, 1.6, L => `Gepanzert: Helfer-Malus −${10 * L} Prozentpunkte`, (m, L) => { m.armorPierce += 0.1 * L; }],
+    ['p-exec', 'Endspurt', 'flame', 10, 1.5, L => `+${10 * L} % Schaden auf die letzten 20 % Limit`, (m, L) => { m.execute += 0.1 * L; }],
+    ['p-ultra', 'Ultra-Jäger', 'rocket', 20, 1.4, L => `+${15 * L} % Schaden gegen Ultra-KIs`, (m, L) => { m.ultraDmg += 0.15 * L; }],
+    ['p-boss', 'Limit-Brecher', 'clock', 20, 1.4, L => `+${25 * L} % Schaden gegen Bosse`, (m, L) => { m.bossDmg += 0.25 * L; }],
+    ['p-core', 'Transformer-Kern', 'bolt', 50, 1.15, L => `Tap-Schaden ${times(1.3 ** L)}`, (m, L) => { m.click *= 1.3 ** L; }],
+  ],
+  auto: [
+    ['a-par', 'Paralleli\u00adsierung', 'agents', 100, 1.12, L => `Helfer ${times(1.15 ** L)}`, (m, L) => { m.global *= 1.15 ** L; }],
+    ['a-cost', 'Effiziente Kerne', 'gpu', 20, 1.4, L => `Helfer kosten −${2 * L} %`, (m, L) => { m.helperCost *= 1 - 0.02 * L; }],
+    ['a-start', 'Startkapital', 'gift', 15, 1.5, L => `Jeder Lauf startet mit ${fmt(L ? 100 * 5 ** L : 0)} Tokens`, (m, L) => { m.startTokens = 100 * 5 ** L; }],
+    ['a-scale', 'Skalierungs\u00adgesetz', 'trend', 10, 1.5, L => `+${fmt(0.1 * L, 1)} % Helfer-Schaden pro Helfer`, (m, L) => { m.scaleLaw += 0.001 * L; }],
+    ['a-offline', 'Dauerbetrieb', 'clock', 6, 1.6, L => `Offline-Fortschritt +${2 * L} Std.`, (m, L) => { m.offlineHours += 2 * L; }],
+    ['a-line', 'Fließband', 'layers', 50, 1.14, L => `Helfer ${times(1.25 ** L)}`, (m, L) => { m.global *= 1.25 ** L; }],
+    ['a-updates', 'Gratis-Updates', 'refresh', 10, 1.5, L => `Upgrades kosten −${4 * L} %`, (m, L) => { m.upgradeCost *= 1 - 0.04 * L; }],
+    ['a-cool', 'Kühlkreislauf', 'gauge', 10, 1.5, L => `Overclock-Stärke +${fmt(0.3 * L, 1)}`, (m, L) => { m.overclockAdd += 0.3 * L; }],
+    ['a-autobuy', 'Autopilot', 'route', 5, 2, L => `Kauft alle ${fmt(autoBuySeconds(L), 1)} s den lohnendsten Helfer`, (m, L) => { m.autoBuyMs = autoBuySeconds(L) * 1000; }],
+    ['a-sing', 'Singularitäts\u00adnähe', 'singularity', 50, 1.15, L => `Helfer ${times(1.4 ** L)}`, (m, L) => { m.global *= 1.4 ** L; }],
+  ],
+  econ: [
+    ['e-comp', 'Token-Kompression', 'token', 100, 1.12, L => `Tokens ${times(1.15 ** L)}`, (m, L) => { m.tokenGain *= 1.15 ** L; }],
+    ['e-loot', 'Beutezug', 'gift', 50, 1.2, L => `Beute +${20 * L} %`, (m, L) => { m.loot += 0.2 * L; }],
+    ['e-mission', 'Auftragsbörse', 'checklist', 20, 1.35, L => `Aufträge +${25 * L} % Belohnung`, (m, L) => { m.missionReward += 0.25 * L; }],
+    ['e-golden', 'Glücksfund', 'sparkle', 20, 1.35, L => `Geistesblitze ${10 * L} % häufiger`, (m, L) => { m.goldenFreq *= 1 + 0.1 * L; }],
+    ['e-frenzy', 'Langer Geistesblitz', 'bulb', 10, 1.5, L => `Geistesblitze wirken +${3 * L} s länger`, (m, L) => { m.frenzyMs += 3000 * L; }],
+    ['e-hype', 'Viraler Effekt', 'megaphone', 20, 1.35, L => `Viraler Hype +${fmt(0.25 * L, 2)} Stärke`, (m, L) => { m.hypeAdd += 0.25 * L; }],
+    ['e-rewards', 'Prämien\u00adprogramm', 'seal', 10, 1.5, L => `Boss-, Meilenstein- und Tagesbelohnungen ${times(1 + 0.5 * L)}`, (m, L) => { m.rewardMult *= 1 + 0.5 * L; }],
+    ['e-distill', 'Erkenntnis-Destillat', 'brain', 100, 1.15, L => `+${5 * L} % Erkenntnisse beim Komprimieren`, (m, L) => { m.prestigeGain += 0.05 * L; }],
+    ['e-vc', 'Risikokapital', 'trend', 50, 1.15, L => `Tokens ${times(1.3 ** L)}`, (m, L) => { m.tokenGain *= 1.3 ** L; }],
+    ['e-ipo', 'Börsengang', 'rocket', 50, 1.2, L => `Erkenntnisse ${times(1.1 ** L)}`, (m, L) => { m.prestigeMult *= 1.1 ** L; }],
+  ],
+  aim: [
+    ['c-focus', 'Fokusoptik', 'crosshair', 100, 1.12, L => `Krit-Schaden ${times(1.15 ** L)}`, (m, L) => { m.crit *= 1.15 ** L; }],
+    ['c-size', 'Breite Schwachstelle', 'target', 15, 1.4, L => `Schwachstelle +${4 * L} %`, (m, L) => { m.weakSize *= 1 + 0.04 * L; }],
+    ['c-buffer', 'Ketten-Puffer', 'chain', 15, 1.4, L => `Krit-Kette hält +${60 * L} ms`, (m, L) => { m.chainWindow += 60 * L; }],
+    ['c-amp', 'Ketten\u00adverstärker', 'chain', 15, 1.45, L => `+${2 * L} % Krit-Bonus pro Glied`, (m, L) => { m.chainBonus += 0.02 * L; }],
+    ['c-grace', 'Zweite Chance', 'heal', 3, 3, L => `${L} Fehltipp${L === 1 ? '' : 's'} pro Kette erlaubt`, (m, L) => { m.chainGrace += L; }],
+    ['c-steady', 'Ruhige Hand', 'sliders', 10, 1.5, L => `Schwachstelle wandert ${5 * L} % langsamer`, (m, L) => { m.drift *= 1 - 0.05 * L; }],
+    ['c-combo', 'Combo-Gedächtnis', 'flame', 10, 1.5, L => `Combo hält +${150 * L} ms`, (m, L) => { m.comboWindow += 150 * L; }],
+    ['c-turbo', 'Combo-Turbo', 'flame', 10, 1.5, L => `+${fmt(0.2 * L, 1)} % pro Combo-Stufe`, (m, L) => { m.comboStep += 0.002 * L; }],
+    ['c-exploit', 'Exploit-Kit', 'search', 10, 1.5, L => `Exploit-Modus +${3 * L} % Krit-Chance`, (m, L) => { m.exploitAdd += 3 * L; }],
+    ['c-matrix', 'Präzisions\u00admatrix', 'crosshair', 50, 1.15, L => `Krit-Schaden ${times(1.3 ** L)}`, (m, L) => { m.crit *= 1.3 ** L; }],
+  ],
+  ctrl: [
+    ['k-infer', 'Schnelle Inferenz', 'gauge', 15, 1.4, L => `Abklingzeiten −${fmt((1 - 0.97 ** L) * 100, 1)} %`, (m, L) => { m.cooldown *= 0.97 ** L; }],
+    ['k-long', 'Lange Kontexte', 'window', 20, 1.35, L => `Fähigkeiten wirken +${3 * L} % länger`, (m, L) => { m.skillDuration *= 1 + 0.03 * L; }],
+    ['k-power', 'Verstärkte Fähigkeiten', 'storm', 20, 1.35, L => `Fähigkeiten +${5 * L} % stärker`, (m, L) => { m.skillPower *= 1 + 0.05 * L; }],
+    ['k-launch', 'Launch-Verzögerung', 'rocket', 15, 1.4, L => `Ultra-Countdown +${2 * L} s, Boss-Zeit +${4 * L} s`, (m, L) => { m.ultraTime += 2000 * L; m.bossTime += 4000 * L; }],
+    ['k-skip', 'Wellensprung', 'wave', 25, 1.35, L => `${2 * L} % Chance, eine Welle zu überspringen`, (m, L) => { m.waveSkip += 0.02 * L; }],
+    ['k-trait', 'Eigenschafts-Analyse', 'search', 20, 1.35, L => `+${10 * L} % Schaden gegen KIs mit Eigenschaft`, (m, L) => { m.traitDmg += 0.1 * L; }],
+    ['k-reflex', 'Abwehr-Reflex', 'shield', 10, 1.5, L => `Boss-Angriffe ${8 * L} % länger abwehrbar, Negativ-Effekte ${5 * L} % kürzer`, (m, L) => { m.parryWindow *= 1 + 0.08 * L; m.debuffTime *= 1 - 0.05 * L; }],
+    ['k-robust', 'Störfestigkeit', 'stop', 6, 1.6, L => `Regeneration −${15 * L} %, +${L} Tap/s bis zum 429`, (m, L) => { m.regen *= 1 - 0.15 * L; m.rateTaps += L; }],
+    ['k-memory', 'Fähigkeiten-Gedächtnis', 'brain', 10, 1.6, L => `Fähigkeiten starten jeden Lauf auf Stufe ${L}`, (m, L) => { m.skillStart = L; }],
+    ['k-dilate', 'Zeitdilatation', 'clock', 20, 1.25, L => `Abklingzeiten −${L} %, Fähigkeiten +${L} % länger`, (m, L) => { m.cooldown *= 1 - 0.01 * L; m.skillDuration *= 1 + 0.01 * L; }],
+  ],
+};
+const TREE = TREE_BRANCHES.flatMap(b => TREE_SPEC[b.id].map(([id, name, iconName, max, growth, describe, apply], i) => ({
+  id, branch: b.id, row: i + 1, name, icon: iconName, max, growth, describe, apply, colors: b.colors,
+})));
+
+function autoBuySeconds(L) {
+  return Math.max(1, 12 - 2.2 * L);
+}
 
 const MISSION_TYPES = [
   { type: 'kills', icon: 'target', range: [15, 40], text: n => `Besiege ${n} KIs` },
@@ -323,7 +488,7 @@ const MISSION_TYPES = [
   { type: 'ultras', icon: 'rocket', range: [1, 3], text: n => (n > 1 ? `Besiege ${n} Ultra-KIs vor dem Launch` : 'Besiege eine Ultra-KI vor dem Launch') },
   { type: 'traits', icon: 'shield', range: [3, 8], text: n => `Besiege ${n} KIs mit Eigenschaft`, when: s => s.highestWave >= TRAIT_MIN_WAVE },
   { type: 'skills', icon: 'storm', range: [2, 5], text: n => `Setze ${n}× eine Fähigkeit ein`, when: s => SKILLS.some(k => s.skills[k.id].level > 0) },
-  { type: 'discover', icon: 'sparkle', range: [2, 4], text: n => `Entdecke ${n} neue KIs`, when: s => s.discovered.size < MODELS.length - 4 },
+  { type: 'discover', icon: 'sparkle', range: [2, 4], text: n => `Entdecke ${n} neue KIs`, when: s => MODELS.filter((m, i) => (m.wave || 1) <= s.highestWave && !s.discovered.has(i)).length >= 4 },
 ];
 
 const ACHIEVEMENTS = [
@@ -334,6 +499,7 @@ const ACHIEVEMENTS = [
   { id: 'wave-10', name: 'Wellenreiter', desc: 'Erreiche Welle 10.', check: s => s.highestWave >= 10 },
   { id: 'wave-25', name: 'Brandung', desc: 'Erreiche Welle 25.', check: s => s.highestWave >= 25 },
   { id: 'wave-50', name: 'Tsunami', desc: 'Erreiche Welle 50.', check: s => s.highestWave >= 50 },
+  { id: 'wave-100', name: 'Jenseits des Limits', desc: 'Erreiche Welle 100.', check: s => s.highestWave >= 100 },
   { id: 'earn-1e3', name: 'Erste Tausend', desc: 'Verdiene insgesamt 1.000 Tokens.', check: s => s.totalEarned >= 1e3 },
   { id: 'earn-1e6', name: 'Token-Millionär', desc: 'Verdiene insgesamt 1 Mio. Tokens.', check: s => s.totalEarned >= 1e6 },
   { id: 'earn-1e9', name: 'Kontext-Milliardär', desc: 'Verdiene insgesamt 1 Mrd. Tokens.', check: s => s.totalEarned >= 1e9 },
@@ -341,12 +507,19 @@ const ACHIEVEMENTS = [
   { id: 'dps-100', name: 'Läuft von allein', desc: 'Erreiche 100 Schaden/s.', check: (s, dps) => dps >= 100 },
   { id: 'dps-1e5', name: 'Schadens-Tornado', desc: 'Erreiche 100.000 Schaden/s.', check: (s, dps) => dps >= 1e5 },
   { id: 'gens-100', name: 'Massenproduktion', desc: 'Besitze 100 Helfer gleichzeitig.', check: s => totalGenerators(s) >= 100 },
-  { id: 'dyson', name: 'Typ-II-Zivilisation', desc: 'Baue eine Dyson-Sphäre.', check: s => s.gens.dyson >= 1 },
+  { id: 'dyson', name: 'Ereignishorizont', desc: 'Kaufe eine Singularität.', check: s => s.gens.dyson >= 1 },
   { id: 'golden-1', name: 'Heureka!', desc: 'Fange einen Geistesblitz.', check: s => s.goldenClicks >= 1 },
   { id: 'golden-10', name: 'Genie bei der Arbeit', desc: 'Fange 10 Geistesblitze.', check: s => s.goldenClicks >= 10 },
-  { id: 'boss', name: 'Wochenlimit besiegt', desc: 'Besiege den Wochenboss.', check: s => s.bossWins >= 1 },
+  { id: 'boss', name: 'Wochenlimit besiegt', desc: `Besiege das Wochenlimit auf Level ${BOSS_EVERY_WAVES * WAVE_SIZE}.`, check: s => s.bossWins >= 1 },
+  { id: 'boss-3', name: 'Limitlos', desc: 'Besiege das Wochenlimit III.', check: s => s.bossBest >= 3 },
+  { id: 'parry-50', name: 'Abwehrkünstler', desc: 'Wehre 50 Angriffe des Wochenlimits ab.', check: s => s.parries >= 50 },
   { id: 'prestige', name: 'Frischer Kontext', desc: 'Komprimiere deinen Kontext.', check: s => s.prestiges >= 1 },
+  { id: 'prestige-10', name: 'Versionssprung', desc: 'Komprimiere deinen Kontext 10-mal.', check: s => s.prestiges >= 10 },
+  { id: 'prestige-100', name: 'Hundertste Iteration', desc: 'Komprimiere deinen Kontext 100-mal.', check: s => s.prestiges >= 100 },
+  { id: 'tree-25', name: 'Wurzeln geschlagen', desc: 'Lerne 25 Stufen im Fähigkeitenbaum.', check: s => treeTotal(s) >= 25 },
+  { id: 'tree-250', name: 'Weit verzweigt', desc: 'Lerne 250 Stufen im Fähigkeitenbaum.', check: s => treeTotal(s) >= 250 },
   { id: 'dex-16', name: 'Sammler', desc: 'Entdecke 16 verschiedene KIs.', check: s => s.discovered.size >= 16 },
+  { id: 'dex-48', name: 'Kenner', desc: 'Entdecke 48 verschiedene KIs.', check: s => s.discovered.size >= 48 },
   { id: 'dex-all', name: 'Vollständige Sammlung', desc: `Entdecke alle ${MODELS.length} KIs.`, check: s => s.discovered.size >= MODELS.length },
   { id: 'crit-1', name: 'Kritischer Moment', desc: 'Lande deinen ersten kritischen Treffer.', check: s => s.crits >= 1 },
   { id: 'combo-100', name: 'Combo-Meister', desc: 'Erreiche eine Combo von 100.', check: s => s.maxCombo >= 100 },
@@ -356,8 +529,14 @@ const ACHIEVEMENTS = [
   { id: 'skills-25', name: 'Werkzeugkasten', desc: 'Setze 25-mal eine Fähigkeit ein.', check: s => s.skillUses >= 25 },
   { id: 'missions-10', name: 'Auftragslage gut', desc: 'Erledige 10 Aufträge.', check: s => s.missionsDone >= 10 },
   { id: 'rate-limited', name: 'Too Many Requests', desc: 'Lass dich von einem Ratenlimit ausbremsen.', check: s => s.rateLimited >= 1 },
+  { id: 'vortex-1', name: 'Ins Dunkel geblickt', desc: 'Sammle eine Dark-Vortex-Variante.', secret: true, check: s => s.vortex.size >= 1 },
   { id: 'limit', name: 'Limit überstanden', desc: 'Warte im Spiel einen deiner Claude-Limit-Resets ab.', check: s => s.limitsSurvived >= 1 },
 ];
+
+// 1500 → „1,5 s“
+function fmtSec(ms) {
+  return `${(ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} s`;
+}
 
 const SUFFIXES = ['', ' Tsd.', ' Mio.', ' Mrd.', ' Bio.', ' Brd.', ' Trio.', ' Trd.', ' Quadr.', ' Quadrd.', ' Quint.', ' Quintd.'];
 
@@ -416,6 +595,19 @@ const ICON_PATHS = {
   storm: '<path d="M7 15.5a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 17 8a3.8 3.8 0 0 1 .5 7.5"/><path d="M12.5 11.5l-2.5 4h3l-2 4.5"/>',
   bomb: '<circle cx="10.5" cy="13.5" r="6.5"/><path d="M15.2 8.8l2.3-2.3"/><path d="M19.5 2.5v2.5M21.5 4.5H19"/>',
   bulb: '<path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z"/>',
+  more: '<circle cx="5.5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="18.5" cy="12" r="1.5" fill="currentColor"/>',
+  barrier: '<circle cx="12" cy="12" r="9" stroke-dasharray="3.2 2.4"/><path d="M12 7l4 1.7v3c0 2.4-1.7 4.3-4 5.3-2.3-1-4-2.9-4-5.3v-3z"/>',
+  eyeoff: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c5 0 8.6 4.4 9.5 7a12.4 12.4 0 0 1-2.9 4.1M6.5 6.6C4.6 7.9 3.2 9.8 2.5 12c.9 2.6 4.5 7 9.5 7 1.7 0 3.3-.5 4.6-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  teleport: '<circle cx="7" cy="17" r="2.6"/><circle cx="17" cy="7" r="2.6" stroke-dasharray="2.2 1.8"/><path d="M9 15l5.5-5.5M10.5 8.5h4.5V13"/>',
+  shrink: '<path d="M4 4l5.5 5.5M9.5 5v4.5H5M20 20l-5.5-5.5M14.5 19v-4.5H19"/>',
+  mute: '<path d="M4 10v4a1 1 0 0 0 1 1h2.5l5 4V5l-5 4H5a1 1 0 0 0-1 1z"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/>',
+  diamond: '<path d="M7 4h10l4 5-9 11L3 9z"/><path d="M3 9h18M9.5 4L8 9l4 11 4-11-1.5-5"/>',
+  coins: '<ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/>',
+  glitch: '<path d="M2.5 12h4l2-5.5 3 11 2.5-8 1.6 2.5h5.9"/>',
+  hourglass: '<path d="M6.5 3.5h11M6.5 20.5h11M8 3.5v3a4 4 0 0 0 2 3.5l2 1.5 2-1.5a4 4 0 0 0 2-3.5v-3M8 20.5v-3a4 4 0 0 1 2-3.5l2-1.5 2 1.5a4 4 0 0 1 2 3.5v3"/>',
+  vortex: '<path d="M12 12.2a1.6 1.6 0 1 1 1.6-1.9c.3 2-1.6 3.4-3.5 3.1-2.6-.4-3.8-3.4-2.6-5.7 1.5-2.9 5.5-3.6 8-1.6 3.1 2.4 3 7.2.1 9.6-3.4 2.9-8.9 2.3-11.6-1.2"/>',
+  swarm: '<circle cx="12" cy="6.5" r="3"/><circle cx="6" cy="16.5" r="3"/><circle cx="18" cy="16.5" r="3"/>',
 };
 
 function icon(name) {
@@ -489,26 +681,6 @@ function dayId(ts) {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-// Beginn der Spielwoche: dein eingestellter Wochenlimit-Reset, sonst Montag 0 Uhr.
-function weekStartAt(ts, anchor) {
-  if (anchor) return anchor + Math.floor((ts - anchor) / WEEK_MS) * WEEK_MS;
-  const d = startOfDay(ts);
-  d.setDate(d.getDate() - (d.getDay() + 6) % 7);
-  return d.getTime();
-}
-
-function nextWeekAt(ts, anchor) {
-  const start = weekStartAt(ts, anchor);
-  if (anchor) return start + WEEK_MS;
-  const d = new Date(start);
-  d.setDate(d.getDate() + 7);
-  return d.getTime();
-}
-
-function weekId(ts, anchor) {
-  return String(weekStartAt(ts, anchor));
-}
-
 function enemyMaxHp(wave, index) {
   // Jede KI ist ein Stück stärker als die vorige, die zehnte (Ultra) noch einmal deutlich.
   const n = (wave - 1) * WAVE_SIZE + index;
@@ -517,22 +689,33 @@ function enemyMaxHp(wave, index) {
 
 // Spielzeit für neue Gegner; in der Offline-Simulation die simulierte Zeit.
 let clock = Date.now();
+// Während Offline-Fortschritt nachgerechnet wird: keine Toasts, Popups oder Animationen.
+let quiet = false;
 
 function rollTrait(kind, wave, index) {
   if (wave < TRAIT_MIN_WAVE) return null;
-  const signature = SIGNATURE_TRAITS[MODELS[kind].name];
-  if (signature) return signature;
-  if (index === WAVE_SIZE - 1 || Math.random() < TRAIT_CHANCE) return TRAIT_KEYS[Math.floor(Math.random() * TRAIT_KEYS.length)];
-  return null;
+  const ultra = index === WAVE_SIZE - 1;
+  let trait = SIGNATURE_TRAITS[MODELS[kind].name] || MODELS[kind].trait || null;
+  if (!trait && (ultra || Math.random() < TRAIT_CHANCE)) {
+    const pool = TRAIT_KEYS.filter(k => (TRAITS[k].wave || 0) <= wave);
+    trait = pool[Math.floor(Math.random() * pool.length)];
+  }
+  // Ultra-KIs haben schon ihren Launch-Countdown, eine Flucht passt nicht dazu.
+  return ultra && trait === 'fleeting' ? 'evasive' : trait;
 }
 
-function newEnemy(wave, index) {
-  const kind = Math.floor(Math.random() * MODELS.length);
+// highest: höchste je erreichte Welle – bis dahin ist die neue Generation freigeschaltet.
+function newEnemy(wave, index, highest = wave) {
+  const reach = Math.max(wave, highest);
+  const pool = [];
+  MODELS.forEach((m, i) => { if ((m.wave || 1) <= reach) pool.push(i); });
+  const kind = pool[Math.floor(Math.random() * pool.length)];
   return {
     kind,
     seed: Math.floor(Math.random() * 2 ** 31),
     hp: enemyMaxHp(wave, index),
     trait: rollTrait(kind, wave, index),
+    vortex: !quiet && Math.random() < VORTEX_CHANCE,
     spawnedAt: clock,
   };
 }
@@ -549,8 +732,17 @@ function freshState(now = Date.now()) {
     upgrades: new Set(),
     achievements: new Set(),
     discovered: new Set(),
-    insights: 0,
-    prestiges: 0,
+    vortex: new Set(),    // gesammelte Dark-Vortex-Varianten (Modell-Index)
+    vortexKills: 0,
+    insights: 0,          // Erkenntnisse = Prestige-Tokens (unverbraucht)
+    insightsEarned: 0,
+    prestiges: 0,         // Kontext-Version = prestiges + 1
+    tree: {},
+    runWave: 1,
+    bossBlocked: false,   // Boss verloren: die Welle wird gefarmt, bis du ihn erneut herausforderst
+    bossBest: 0,
+    bossFails: 0,
+    parries: 0,
     goldenClicks: 0,
     frenzyUntil: 0,
     buyAmount: 1,
@@ -562,7 +754,6 @@ function freshState(now = Date.now()) {
     boss: null,
     kills: 0,
     bossWins: 0,
-    week: { id: weekId(now, null), kills: 0, claimed: 0, bossDefeated: false },
     lastDaily: '',
     crits: 0,
     maxCombo: 0,
@@ -593,7 +784,6 @@ function fromSaveData(data) {
     ...base,
     ...data,
     gens: { ...base.gens, ...data.gens },
-    week: { ...base.week, ...data.week },
     enemy: enemyOk
       ? {
         ...data.enemy,
@@ -613,11 +803,24 @@ function fromSaveData(data) {
       ? data.missions.filter(m => m && MISSION_TYPES.some(t => t.type === m.type) && m.target > 0)
       : [],
     upgrades: new Set(data.upgrades || []),
+    tree: Object.fromEntries(TREE
+      .map(n => [n.id, Math.min(n.max, Math.max(0, Math.floor(Number((data.tree || {})[n.id]) || 0)))])
+      .filter(([, level]) => level > 0)),
+    runWave: Math.max(data.runWave ?? 1, data.wave ?? 1),
+    // Früher kam der Boss wöchentlich (ohne Stufe); so ein alter Kampf wird beendet.
+    boss: data.boss && Number.isFinite(data.boss.hp) && Number.isInteger(data.boss.tier) ? { ...data.boss } : null,
     achievements: new Set((data.achievements || []).filter(id => ACHIEVEMENTS.some(a => a.id === id))),
     discovered: new Set((data.discovered || []).filter(i => Number.isInteger(i) && i >= 0 && i < MODELS.length)),
+    vortex: new Set((data.vortex || []).filter(i => Number.isInteger(i) && i >= 0 && i < MODELS.length)),
   };
+  delete s.week;
   // Ältere Spielstände hatten eine andere HP-Kurve.
   s.enemy.hp = Math.min(s.enemy.hp, s.enemy.maxHp ?? enemyMaxHp(s.wave, s.enemyIndex));
+  // Der Platz des Bosses ohne Boss (alter Spielstand): zurück zu KI 1 der Welle.
+  if (!s.boss && s.wave % BOSS_EVERY_WAVES === 0 && s.enemyIndex === WAVE_SIZE - 1) {
+    s.enemyIndex = 0;
+    s.enemy = newEnemy(s.wave, 0, s.highestWave);
+  }
   return s;
 }
 
@@ -628,6 +831,7 @@ function toSaveData() {
     upgrades: [...state.upgrades],
     achievements: [...state.achievements],
     discovered: [...state.discovered],
+    vortex: [...state.vortex],
     lastSave: now,
     maxSeen: Math.max(state.maxSeen, now),
   };
@@ -652,8 +856,6 @@ function load() {
 
 let state = load();
 let mods = computeMods();
-// Während Offline-Fortschritt nachgerechnet wird: keine Toasts, Popups oder Animationen.
-let quiet = false;
 
 // ---------- Werte ----------
 
@@ -672,11 +874,57 @@ function computeMods() {
     chainShrink: 1,
     cooldown: 1,
     ultraTime: ULTRA_TIME_MS,
+    bossTime: BOSS_TIME_MS,
+    // aus dem Fähigkeitenbaum
+    tokenGain: 1,
+    doubleTap: 0,
+    autoTap: 0,
+    armorPierce: 0,
+    execute: 0,
+    ultraDmg: 0,
+    bossDmg: 0,
+    helperCost: 1,
+    startTokens: 0,
+    scaleLaw: 0,
+    offlineHours: 0,
+    upgradeCost: 1,
+    overclockAdd: 0,
+    autoBuyMs: 0,
+    loot: 0,
+    missionReward: 0,
+    frenzyMs: 0,
+    hypeAdd: 0,
+    rewardMult: 1,
+    prestigeGain: 0,
+    prestigeMult: 1,
+    chainBonus: 0,
+    chainGrace: 0,
+    drift: 1,
+    comboStep: 0,
+    exploitAdd: 0,
+    skillDuration: 1,
+    skillPower: 1,
+    waveSkip: 0,
+    traitDmg: 0,
+    parryWindow: 1,
+    debuffTime: 1,
+    regen: 1,
+    rateTaps: 0,
+    skillStart: 0,
   };
   for (const u of UPGRADES) if (state.upgrades.has(u.id)) u.apply(m);
-  m.global *= 1 + INSIGHT_BONUS * state.insights;
+  for (const node of TREE) {
+    const lvl = state.tree[node.id] || 0;
+    if (lvl > 0) node.apply(m, lvl);
+  }
+  // Jede Kontext-Version macht dauerhaft stärker.
+  const version = 1 + VERSION_BONUS * state.prestiges;
+  m.global *= version;
+  m.click *= version;
+  m.tokenGain *= version;
   m.global *= 1 + ACHIEVEMENT_BONUS * state.achievements.size;
   m.global *= 1 + BOSS_WIN_BONUS * state.bossWins;
+  m.cooldown = Math.max(COOLDOWN_FLOOR, m.cooldown);
   return m;
 }
 
@@ -689,7 +937,8 @@ function unitRate(g) {
 }
 
 function baseDps() {
-  return GENERATORS.reduce((sum, g) => sum + state.gens[g.id] * unitRate(g), 0);
+  const raw = GENERATORS.reduce((sum, g) => sum + state.gens[g.id] * unitRate(g), 0);
+  return raw * (1 + mods.scaleLaw * totalGenerators(state));
 }
 
 function skillDef(id) {
@@ -701,10 +950,18 @@ function skillActive(id, now = Date.now()) {
 }
 
 function skillPower(id) {
-  return skillDef(id).power(state.skills[id].level);
+  const k = skillDef(id);
+  let p = k.power(state.skills[id].level);
+  if (id === 'midas') p += mods.hypeAdd;
+  if (id === 'overclock') p += mods.overclockAdd;
+  if (id === 'crit') return Math.min(95, (p + mods.exploitAdd) * mods.skillPower);
+  // Multiplikatoren wachsen über ihrem Grundwert 1, alles andere direkt
+  return k.mult ? 1 + (p - 1) * mods.skillPower : p * mods.skillPower;
 }
 
 function helperFactor(now = Date.now()) {
+  // Boss-Angriff „Helfer pausiert“
+  if (now < debuffs.helpers) return 0;
   return frenzyFactor(now) * (skillActive('overclock', now) ? skillPower('overclock') : 1);
 }
 
@@ -725,8 +982,13 @@ function tokenPerDamage() {
   return 1 + WAVE_TOKEN_BONUS * (state.wave - 1);
 }
 
+// Tokens pro Schadenspunkt inklusive Baum und Kontext-Version
+function tokenRate() {
+  return tokenPerDamage() * mods.tokenGain;
+}
+
 function incomeRate() {
-  return baseDps() * tokenPerDamage();
+  return baseDps() * tokenRate();
 }
 
 function earn(amount) {
@@ -738,13 +1000,17 @@ function earn(amount) {
 // ---------- Shop ----------
 
 function costOf(g, n) {
-  const first = g.baseCost * COST_GROWTH ** state.gens[g.id];
+  const first = g.baseCost * COST_GROWTH ** state.gens[g.id] * mods.helperCost;
   return first * (COST_GROWTH ** n - 1) / (COST_GROWTH - 1);
+}
+
+function upgradeCost(u) {
+  return u.cost * mods.upgradeCost;
 }
 
 function amountToBuy(g) {
   if (state.buyAmount !== 'max') return state.buyAmount;
-  const first = g.baseCost * COST_GROWTH ** state.gens[g.id];
+  const first = g.baseCost * COST_GROWTH ** state.gens[g.id] * mods.helperCost;
   let n = Math.floor(Math.log(state.tokens * (COST_GROWTH - 1) / first + 1) / Math.log(COST_GROWTH));
   while (n > 1 && costOf(g, n) > state.tokens) n--;
   return Math.max(1, n);
@@ -760,8 +1026,8 @@ function buyGenerator(g) {
 }
 
 function buyUpgrade(u) {
-  if (state.upgrades.has(u.id) || state.tokens < u.cost) return;
-  state.tokens -= u.cost;
+  if (state.upgrades.has(u.id) || state.tokens < upgradeCost(u)) return;
+  state.tokens -= upgradeCost(u);
   state.upgrades.add(u.id);
   mods = computeMods();
   render();
@@ -769,20 +1035,67 @@ function buyUpgrade(u) {
 
 // ---------- Kampf ----------
 
+function currentLevel() {
+  return (state.wave - 1) * WAVE_SIZE + state.enemyIndex + 1;
+}
+
+function isBossWave(wave) {
+  return wave % BOSS_EVERY_WAVES === 0;
+}
+
+// Der letzte Platz einer Boss-Welle gehört dem Wochenlimit.
+function isBossSlot() {
+  return isBossWave(state.wave) && state.enemyIndex === WAVE_SIZE - 1;
+}
+
+function bossTier(wave) {
+  return Math.ceil(wave / BOSS_EVERY_WAVES);
+}
+
+function roman(n) {
+  const table = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let out = '';
+  for (const [value, sign] of table) {
+    while (n >= value) {
+      out += sign;
+      n -= value;
+    }
+  }
+  return out;
+}
+
+function bossName(tier) {
+  return tier > 1 ? `${BOSS.name} ${roman(tier)}` : BOSS.name;
+}
+
+function bossMaxHp(wave) {
+  return enemyMaxHp(wave, WAVE_SIZE - 1) * BOSS_HP_MULT * BOSS_TIER_GROWTH ** (bossTier(wave) - 1);
+}
+
+function spawnEnemy() {
+  state.enemy = newEnemy(state.wave, state.enemyIndex, state.highestWave);
+}
+
 function target() {
   if (state.boss) {
-    return { model: BOSS, name: BOSS.name, tag: 'Boss', tagClass: 'boss', seed: 7, hue: BOSS.hue, ultra: false, trait: null, unit: state.boss, maxHp: state.boss.maxHp, meter: BOSS_METER, isBoss: true };
+    const b = state.boss;
+    return {
+      model: BOSS, name: bossName(b.tier), tag: `Boss · Level ${fmt(currentLevel())}`, tagClass: 'boss', seed: 7 + b.tier, hue: BOSS.hue,
+      ultra: false, trait: null, vortex: false, unit: b, maxHp: b.maxHp, meter: BOSS_METER, isBoss: true,
+    };
   }
   const model = MODELS[state.enemy.kind];
   const ultra = state.enemyIndex === WAVE_SIZE - 1;
   const base = ultra ? `${model.name} ${state.wave} Ultra` : `${model.name} ${state.wave}.${state.enemyIndex + 1}`;
+  const copy = state.enemy.forked === 'swarm' ? 'Kopie' : 'Fork';
   return {
     model,
     trait: state.enemy.trait,
+    vortex: Boolean(state.enemy.vortex),
     // Jede KI bekommt eine leicht eigene Farbnuance ihres Modells.
     hue: (model.hue + (state.enemy.seed % 25) - 12 + 360) % 360,
     ultra,
-    name: state.enemy.forked ? `${base} (Fork)` : base,
+    name: state.enemy.forked ? `${base} (${copy})` : base,
     tag: ultra ? `Ultra · ${WAVE_SIZE}/${WAVE_SIZE}` : `KI ${state.enemyIndex + 1}/${WAVE_SIZE}`,
     tagClass: ultra ? 'ultra' : '',
     seed: state.enemy.seed,
@@ -796,7 +1109,9 @@ function target() {
 // Jeder Schadenspunkt bringt Tokens. Überschüssiger Schaden geht auf die nächste KI über.
 function attack(amount) {
   if (!(amount > 0)) return;
-  earn(amount * tokenPerDamage() * tokenBoost());
+  // Token-Fresser: Treffer bringen nur halb so viele Tokens
+  const greed = !state.boss && state.enemy.trait === 'greedy' ? 0.5 : 1;
+  earn(amount * tokenRate() * tokenBoost() * greed);
   let left = amount;
   for (let guard = 0; left > 0 && guard < 500; guard++) {
     const unit = state.boss || state.enemy;
@@ -814,15 +1129,16 @@ let lastLimitPopup = 0;
 function defeatEnemy() {
   const e = state.enemy;
   const t = target();
-  const loot = t.maxHp * LOOT_MULT * tokenPerDamage() * tokenBoost();
+  const loot = t.maxHp * LOOT_MULT * (1 + mods.loot) * tokenRate() * tokenBoost()
+    * (e.trait === 'greedy' ? 2 : 1) * (e.vortex ? VORTEX_LOOT : 1);
   earn(loot);
   state.kills++;
-  addWeeklyKill();
   missionProgress('kills');
   if (e.trait) {
     state.traitKills++;
     missionProgress('traits');
   }
+  if (e.vortex && !e.forked) collectVortex(e.kind);
   if (!quiet && Date.now() - lastLimitPopup > 450) {
     lastLimitPopup = Date.now();
     popup('Limit erreicht', 'limit', 50, 18);
@@ -830,29 +1146,73 @@ function defeatEnemy() {
     shatter(t.hue);
     SFX.kill();
   }
-  // Forkt sich: Die Kopie muss auch noch besiegt werden.
-  if (e.trait === 'fork' && !e.forked) {
-    const hp = t.maxHp * FORK_HP;
-    state.enemy = { kind: e.kind, seed: e.seed + 1, hp, maxHp: hp, trait: null, forked: true, spawnedAt: e.spawnedAt };
-    if (!quiet) popup('Fork!', 'limit', 50, 30);
+  // Forkt sich bzw. Schwarm: Die Kopien müssen auch noch besiegt werden.
+  const copies = e.forked ? e.copiesLeft || 0 : e.trait === 'fork' ? 1 : e.trait === 'swarm' ? 2 : 0;
+  if (copies > 0) {
+    const hp = e.forked ? t.maxHp : t.maxHp * (e.trait === 'swarm' ? SWARM_HP : FORK_HP);
+    const copyKind = e.forked || e.trait;
+    state.enemy = { kind: e.kind, seed: e.seed + 1, hp, maxHp: hp, trait: null, vortex: e.vortex, forked: copyKind, copiesLeft: copies - 1, spawnedAt: e.spawnedAt };
+    if (!quiet) popup(copyKind === 'swarm' ? 'Schwarm!' : 'Fork!', 'limit', 50, 30);
     return;
   }
   if (state.enemyIndex === WAVE_SIZE - 1) {
     state.ultraWins++;
     missionProgress('ultras');
   }
+  nextEnemy();
+}
+
+function collectVortex(kind) {
+  const first = !state.vortex.has(kind);
+  state.vortex.add(kind);
+  state.vortexKills++;
+  if (quiet) return;
+  showOverlay(first ? `Dark Vortex gesammelt: ${MODELS[kind].name}` : 'Dark Vortex besiegt', logoSvg(MODELS[kind].family, MODELS[kind].hue, catalogSeed(kind), { vortex: true, letter: MODELS[kind].name[0] }));
+  toast(first
+    ? `<strong>Dark Vortex gesammelt</strong><br><span class="muted">${MODELS[kind].name} glänzt jetzt in deiner Sammlung.</span>`
+    : `<strong>Dark Vortex besiegt</strong> · ×${VORTEX_LOOT} Beute`, 'vortex');
+}
+
+// Weiter zur nächsten KI; am Ende einer Boss-Welle wartet das Wochenlimit.
+function nextEnemy() {
   state.enemyIndex++;
   if (state.enemyIndex >= WAVE_SIZE) {
-    state.enemyIndex = 0;
-    state.wave++;
-    if (state.wave > state.highestWave) {
-      state.highestWave = state.wave;
-      const skill = SKILLS.find(k => k.wave === state.wave);
-      if (skill) toast(`<strong>${skill.name} verfügbar</strong><br><span class="muted">Im Tab „Fähigkeiten“ freischalten.</span>`, skill.icon);
-      else if (state.wave % 10 === 0) toast(`<strong>Welle ${state.wave}</strong> erreicht · Tokens jetzt +${fmt((tokenPerDamage() - 1) * 100)} %`, 'wave');
+    nextWave();
+  } else if (isBossSlot()) {
+    // Boss verloren oder Rückzug: Die Welle wird gefarmt, bis du ihn erneut herausforderst.
+    if (state.bossBlocked) {
+      state.enemyIndex = 0;
+    } else {
+      spawnEnemy();
+      startBoss();
+      return;
     }
   }
-  state.enemy = newEnemy(state.wave, state.enemyIndex);
+  spawnEnemy();
+}
+
+function nextWave() {
+  const from = state.wave;
+  // Wellensprung (Fähigkeitenbaum) – aber nie über einen Boss hinweg
+  const skip = mods.waveSkip > 0 && !isBossWave(from + 1) && Math.random() < mods.waveSkip;
+  state.wave = from + (skip ? 2 : 1);
+  state.enemyIndex = 0;
+  state.runWave = Math.max(state.runWave, state.wave);
+  if (skip) popup('Wellensprung', 'limit', 50, 30);
+  // Meilenstein alle 10 Wellen
+  const milestone = Math.floor(state.wave / 10) * 10;
+  if (milestone > from) {
+    const reward = Math.max(500, incomeRate() * 300) * mods.rewardMult;
+    earn(reward);
+    toast(`<strong>Welle ${milestone}</strong> · Meilenstein +${fmt(reward)} Tokens<br><span class="muted">Tokens pro Schaden jetzt +${fmt((tokenPerDamage() - 1) * 100)} %</span>`, 'wave');
+  }
+  if (state.wave > state.highestWave) {
+    const before = state.highestWave;
+    state.highestWave = state.wave;
+    for (const skill of SKILLS.filter(k => k.wave > before && k.wave <= state.wave)) {
+      toast(`<strong>${skill.name} verfügbar</strong><br><span class="muted">Im Tab „Fähigkeiten“ freischalten.</span>`, skill.icon);
+    }
+  }
 }
 
 // Ultra-KIs müssen vor ihrem Launch fallen, sonst geht es zurück zu KI 1 der Welle.
@@ -862,79 +1222,135 @@ function checkUltra(now) {
   state.ultraFails++;
   state.enemyIndex = 0;
   clock = now;
-  state.enemy = newEnemy(state.wave, 0);
+  spawnEnemy();
   if (!quiet) {
     toast('<strong>Launch verpasst.</strong> Die Ultra-KI ist live gegangen. Zurück zu KI 1 dieser Welle.', 'rocket');
     SFX.fail();
   }
 }
 
-// Gepanzerte KIs: Helfer halber Schaden, Taps 50 % mehr
-function traitFactor(source) {
-  if (state.boss || state.enemy.trait !== 'armored') return 1;
-  return source === 'helper' ? 0.5 : source === 'tap' ? 1.5 : 1;
+// Flüchtige KIs hauen nach einer Weile ab – ohne Beute und mit einem Teil deiner Tokens.
+function checkFleeting(now) {
+  const e = state.enemy;
+  if (state.boss || e.trait !== 'fleeting' || now - e.spawnedAt < FLEETING_MS) return;
+  clock = now;
+  if (!quiet) {
+    const stolen = state.tokens * FLEETING_STEAL;
+    state.tokens -= stolen;
+    popup(stolen >= 1 ? `Entkommen · −${fmt(stolen)}` : 'Entkommen', 'blocked', 50, 22);
+    SFX.fail();
+  }
+  nextEnemy();
 }
 
-function addWeeklyKill() {
-  const w = state.week;
-  if (w.kills >= WEEKLY_GOAL) return;
-  w.kills++;
-  const stage = Math.floor(w.kills / (WEEKLY_GOAL / WEEKLY_STAGES));
-  while (w.claimed < stage) {
-    w.claimed++;
-    if (w.claimed < WEEKLY_STAGES) {
-      const reward = Math.max(100, incomeRate() * 600);
-      earn(reward);
-      toast(`<strong>Wochenetappe ${w.claimed}/${WEEKLY_STAGES}</strong> · +${fmt(reward)} Tokens`, 'gift');
-    } else {
-      toast('<strong>Das Wochenlimit ist erschienen.</strong> Fordere es heraus, wenn du bereit bist.', 'clock');
-    }
+function shieldUp(unit, now) {
+  return (now - unit.spawnedAt) % SHIELD_CYCLE_MS >= SHIELD_CYCLE_MS - SHIELD_UP_MS;
+}
+
+function hardenLevel(unit, now) {
+  return Math.min(HARDEN_MAX, HARDEN_STEP * Math.max(0, now - unit.spawnedAt) / 1000);
+}
+
+// Schadensfaktor je nach Ziel: Eigenschaften, Panzerung, Ultra, Boss, Endspurt
+function damageFactor(source) {
+  const t = target();
+  let f = 1;
+  if (t.trait) {
+    f *= 1 + mods.traitDmg;
+    if (t.trait === 'armored') f *= source === 'helper' ? Math.min(1, 0.5 + mods.armorPierce) : source === 'tap' ? 1.5 : 1;
+    else if (t.trait === 'shield' && shieldUp(t.unit, clock)) f *= SHIELD_FACTOR;
+    else if (t.trait === 'harden') f *= 1 - hardenLevel(t.unit, clock);
+  }
+  if (t.ultra) f *= 1 + mods.ultraDmg;
+  if (t.isBoss) f *= 1 + mods.bossDmg;
+  if (t.unit.hp < t.maxHp * 0.2) f *= 1 + mods.execute;
+  return f;
+}
+
+// ---------- Das Wochenlimit (Boss alle 500 Level) ----------
+
+function startBoss() {
+  const tier = bossTier(state.wave);
+  const maxHp = bossMaxHp(state.wave);
+  state.boss = { tier, maxHp, hp: maxHp, startedAt: clock };
+  clearAttacks();
+  nextAttackAt = clock + BOSS_ATTACK_DELAY_MS;
+  if (!quiet) {
+    showOverlay(`${bossName(tier)} erscheint`, logoSvg('boss', BOSS.hue, 7 + tier, { still: true }));
+    SFX.boss();
   }
 }
 
-function bossAvailable() {
-  return state.week.kills >= WEEKLY_GOAL && !state.week.bossDefeated;
+function checkBoss(now) {
+  if (state.boss && now - state.boss.startedAt >= mods.bossTime) endBossFight(now, false);
+}
+
+// Zeit abgelaufen oder Rückzug: zurück zu KI 1 der Welle. Das Wochenlimit wartet auf eine Revanche.
+function endBossFight(now, retreated) {
+  const name = bossName(state.boss.tier);
+  state.boss = null;
+  state.bossBlocked = true;
+  state.enemyIndex = 0;
+  clock = now;
+  spawnEnemy();
+  clearAttacks();
+  if (retreated) {
+    toast(`<strong>Rückzug.</strong> ${name} wartet mit vollem Limit. Fordere es erneut heraus, wenn du bereit bist.`, 'clock');
+    return;
+  }
+  state.bossFails++;
+  toast(`<strong>${name} hat gewonnen.</strong> Werde stärker – mit Helfern, Upgrades oder Prestige – und fordere es erneut heraus.`, 'clock');
+  SFX.fail();
 }
 
 function challengeBoss() {
-  if (state.boss || !bossAvailable()) return;
-  const maxHp = enemyMaxHp(state.wave, 0) * BOSS_HP_MULT;
-  state.boss = { maxHp, hp: maxHp };
-  showOverlay('Das Wochenlimit erscheint', logoSvg('boss', BOSS.hue, 7));
+  if (state.boss || !state.bossBlocked || !isBossWave(state.wave)) return;
+  state.bossBlocked = false;
+  state.enemyIndex = WAVE_SIZE - 1;
+  clock = Date.now();
+  spawnEnemy();
+  startBoss();
   render();
 }
 
 function retreat() {
-  state.boss = null;
-  state.enemy.spawnedAt = Date.now();
-  toast('Rückzug. Das Wochenlimit wartet, mit vollem Limit.', 'clock');
+  if (!state.boss) return;
+  endBossFight(Date.now(), true);
   render();
 }
 
 function defeatBoss() {
+  const tier = state.boss.tier;
   state.boss = null;
-  state.enemy.spawnedAt = clock;
-  state.week.bossDefeated = true;
+  clearAttacks();
+  state.kills++;
   state.bossWins++;
+  state.bossBest = Math.max(state.bossBest, tier);
+  missionProgress('kills');
   mods = computeMods();
-  const reward = Math.max(1000, incomeRate() * 3600);
+  const reward = Math.max(1000, incomeRate() * 3600) * mods.rewardMult;
   earn(reward);
-  showOverlay('Wochenlimit besiegt', icon('seal'));
-  SFX.win();
-  toast(`<strong>Wochenlimit besiegt.</strong> +${fmt(reward)} Tokens und dauerhaft +${BOSS_WIN_BONUS * 100} % Schaden.`, 'seal');
-}
-
-function checkWeek(now) {
-  const id = weekId(now, state.weeklyReset);
-  if (state.week.id === id) return;
-  if (state.week.kills >= WEEKLY_GOAL && !state.week.bossDefeated) {
-    toast('Das Wochenlimit ist dir entkommen. Neue Woche, neues Glück.', 'clock');
+  const insight = BOSS_INSIGHTS * tier;
+  state.insights += insight;
+  state.insightsEarned += insight;
+  if (!quiet) {
+    showOverlay(`${bossName(tier)} besiegt`, icon('seal'));
+    SFX.win();
   }
-  state.week = { id, kills: 0, claimed: 0, bossDefeated: false };
-  state.boss = null;
+  toast(`<strong>${bossName(tier)} besiegt.</strong> +${fmt(reward)} Tokens, +${fmt(insight)} Erkenntnisse und dauerhaft +${BOSS_WIN_BONUS * 100} % Schaden.`, 'seal');
+  nextWave();
+  spawnEnemy();
 }
 
 const combo = { count: 0, lastAt: 0 };
+// Negativ-Effekte durch Boss-Angriffe (bis zu diesem Zeitpunkt aktiv)
+const debuffs = { helpers: 0, lock: 0, blind: 0 };
+// Halluziniert: zwei falsche Schwachstellen
+let fakes = [];
+let lastShieldPopup = 0;
+let autoTapAcc = 0;
+let lastAutoBuy = Date.now();
+let teleportAt = 0;
 const tapLog = [];
 let throttledUntil = 0;
 let lastThrottlePopup = 0;
@@ -942,10 +1358,10 @@ let autoTaps = 0;
 let weak = { x: 0.5, y: 0.5, vx: 1, vy: 0, movedAt: 0 };
 
 function comboMult() {
-  return 1 + Math.min(combo.count, mods.comboCap) * COMBO_STEP;
+  return 1 + Math.min(combo.count, mods.comboCap) * (COMBO_STEP + mods.comboStep);
 }
 
-const chain = { count: 0, lastAt: 0 };
+const chain = { count: 0, lastAt: 0, misses: 0 };
 
 function chainWindow() {
   return Math.max(CHAIN_WINDOW_MIN, CHAIN_WINDOW_MS - CHAIN_WINDOW_STEP * chain.count) + mods.chainWindow;
@@ -953,7 +1369,7 @@ function chainWindow() {
 
 // Krit-Multiplikator für den nächsten Treffer auf die Schwachstelle
 function chainCritMult(count = chain.count) {
-  return CRIT_MULT * mods.crit * (1 + CHAIN_BONUS * count);
+  return CRIT_MULT * mods.crit * (1 + (CHAIN_BONUS + mods.chainBonus) * count);
 }
 
 function weakRadius() {
@@ -967,12 +1383,13 @@ function breakChain(now) {
     SFX.chainBreak();
   }
   chain.count = 0;
+  chain.misses = 0;
   moveWeakSpot(now);
 }
 
 // Ab einer längeren Kette wandert die Schwachstelle und prallt am Rand ab.
 function driftWeakSpot(dtMs) {
-  const speed = chain.count >= CHAIN_DRIFT_FROM ? Math.min(CHAIN_DRIFT_MAX, CHAIN_DRIFT_STEP * (chain.count - CHAIN_DRIFT_FROM + 1)) : 0;
+  const speed = chain.count >= CHAIN_DRIFT_FROM ? Math.min(CHAIN_DRIFT_MAX, CHAIN_DRIFT_STEP * (chain.count - CHAIN_DRIFT_FROM + 1)) * mods.drift : 0;
   const el = $('weakspot');
   el.classList.toggle('drift', speed > 0);
   if (!speed) return;
@@ -994,32 +1411,55 @@ function driftWeakSpot(dtMs) {
   el.style.top = `${weak.y * 100}%`;
 }
 
-// Die Schwachstelle springt an eine neue Stelle innerhalb der KI.
-function moveWeakSpot(now) {
-  // Neue Stelle mit etwas Abstand zur alten, damit jeder Treffer neu gezielt werden muss.
-  let x;
-  let y;
-  for (let tries = 0; tries < 8; tries++) {
+// Zufällige Stelle innerhalb der KI mit Abstand zu den angegebenen Punkten
+function randomSpot(avoid, minDist) {
+  let x = 0.5;
+  let y = 0.5;
+  for (let tries = 0; tries < 12; tries++) {
     const a = Math.random() * Math.PI * 2;
     const r = Math.sqrt(Math.random()) * 0.27;
     x = 0.5 + Math.cos(a) * r;
     y = 0.5 + Math.sin(a) * r;
-    if (Math.hypot(x - weak.x, y - weak.y) > 0.16) break;
+    if (avoid.every(p => Math.hypot(x - p.x, y - p.y) > minDist)) break;
   }
+  return { x, y };
+}
+
+// Die Schwachstelle springt an eine neue Stelle innerhalb der KI.
+function moveWeakSpot(now) {
+  // Neue Stelle mit etwas Abstand zur alten, damit jeder Treffer neu gezielt werden muss.
+  const { x, y } = randomSpot([weak], 0.16);
   const dir = Math.random() * Math.PI * 2;
   weak = { x, y, vx: Math.cos(dir), vy: Math.sin(dir), movedAt: now };
   const el = $('weakspot');
   el.style.left = `${weak.x * 100}%`;
   el.style.top = `${weak.y * 100}%`;
-  el.style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
+  $('enemy').style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
   restartAnimation(el, 'pop');
+  // Die falschen Punkte (Halluziniert) springen mit.
+  const f1 = randomSpot([weak], 0.2);
+  fakes = [f1, randomSpot([weak, f1], 0.2)];
+  document.querySelectorAll('.weakspot.fake').forEach((f, i) => {
+    f.style.left = `${fakes[i].x * 100}%`;
+    f.style.top = `${fakes[i].y * 100}%`;
+    restartAnimation(f, 'pop');
+  });
 }
 
-// Ein Tap auf die KI – vom Finger/der Maus (mit Koordinaten) oder vom Prompt-Sturm (auto).
-function doTap({ clientX = null, clientY = null, auto = false } = {}) {
+// Ein Tap auf die KI – vom Finger/der Maus (mit Koordinaten), vom Prompt-Sturm (auto)
+// oder von den Aufmerksamkeitsköpfen aus dem Fähigkeitenbaum (auto + passive: ohne Combo, leise).
+function doTap({ clientX = null, clientY = null, auto = false, passive = false } = {}) {
   const now = Date.now();
   clock = now;
   const t = target();
+  // Boss-Angriff „Taps gesperrt“
+  if (now < debuffs.lock) {
+    if (!auto && now - lastThrottlePopup > 350) {
+      lastThrottlePopup = now;
+      popup('Gesperrt', 'blocked', randomBetween(40, 60), randomBetween(30, 45));
+    }
+    return;
+  }
   if (!auto && t.trait === 'ratelimit') {
     if (now < throttledUntil) {
       if (now - lastThrottlePopup > 350) {
@@ -1030,7 +1470,7 @@ function doTap({ clientX = null, clientY = null, auto = false } = {}) {
     }
     tapLog.push(now);
     while (tapLog.length && tapLog[0] < now - 1000) tapLog.shift();
-    if (tapLog.length > RATE_LIMIT_TAPS) {
+    if (tapLog.length > RATE_LIMIT_TAPS + mods.rateTaps) {
       throttledUntil = now + RATE_LIMIT_MS;
       tapLog.length = 0;
       combo.count = 0;
@@ -1039,21 +1479,40 @@ function doTap({ clientX = null, clientY = null, auto = false } = {}) {
       return;
     }
   }
-  if (now - combo.lastAt > mods.comboWindow) combo.count = 0;
-  combo.count++;
-  combo.lastAt = now;
-  state.maxCombo = Math.max(state.maxCombo, combo.count);
-  missionProgress('combo', combo.count, true);
+  if (!passive) {
+    if (now - combo.lastAt > mods.comboWindow) combo.count = 0;
+    combo.count++;
+    combo.lastAt = now;
+    state.maxCombo = Math.max(state.maxCombo, combo.count);
+    missionProgress('combo', combo.count, true);
+  }
   if (auto) autoTaps++;
   else {
     state.clicks++;
     missionProgress('taps');
   }
+  const showAuto = autoTaps % (passive ? 4 : 3) === 0;
+
+  // Schadenszahl dort, wo getippt wurde (per Tastatur oder Sturm: rund um die Mitte)
+  const arena = $('arena').getBoundingClientRect();
+  const x = clientX !== null ? (clientX - arena.left) / arena.width * 100 : randomBetween(38, 62);
+  const y = clientY !== null ? (clientY - arena.top) / arena.height * 100 - 8 : randomBetween(32, 55);
+
+  // Glitcht: Manche Taps gehen ins Leere.
+  if (t.trait === 'glitch' && Math.random() < GLITCH_CHANCE) {
+    if (!auto || showAuto) popup('Glitch', 'blocked', x, y);
+    return;
+  }
 
   let onSpot = false;
-  if (clientX !== null) {
+  let onFake = false;
+  if (clientX !== null && now >= debuffs.blind) {
     const r = $('enemy').getBoundingClientRect();
-    onSpot = Math.hypot((clientX - r.left) / r.width - weak.x, (clientY - r.top) / r.height - weak.y) <= weakRadius();
+    const px = (clientX - r.left) / r.width;
+    const py = (clientY - r.top) / r.height;
+    const radius = weakRadius();
+    onSpot = Math.hypot(px - weak.x, py - weak.y) <= radius;
+    onFake = !onSpot && t.trait === 'decoy' && fakes.some(f => Math.hypot(px - f.x, py - f.y) <= radius);
   }
   // Exploit-Modus: jeder Tap kann kritisch treffen, auch ohne die Schwachstelle
   const lucky = !onSpot && skillActive('crit', now) && Math.random() * 100 < skillPower('crit');
@@ -1067,16 +1526,27 @@ function doTap({ clientX = null, clientY = null, auto = false } = {}) {
     chain.lastAt = now;
     state.bestChain = Math.max(state.bestChain, chain.count);
     missionProgress('chain', chain.count, true);
+  } else if (onFake) {
+    // Halluziniert: Wer auf eine falsche Schwachstelle hereinfällt, verliert die Kette sofort.
+    popup('Halluzination!', 'blocked', x, y - 6);
+    if (chain.count > 0) breakChain(now);
+    else moveWeakSpot(now);
   } else if (clientX !== null && !lucky && chain.count > 0) {
-    breakChain(now);
+    if (chain.misses < mods.chainGrace) {
+      chain.misses++;
+      popup('Knapp!', 'blocked', 50, 22);
+    } else {
+      breakChain(now);
+    }
+  }
+  if (!auto && t.trait === 'shield' && shieldUp(t.unit, now) && now - lastShieldPopup > 500) {
+    lastShieldPopup = now;
+    popup('Schild', 'blocked', x, y - 12);
   }
   const focus = skillActive('focus', now) ? skillPower('focus') : 1;
-  const dmg = clickValue(now) * comboMult() * focus * (crit ? critMult : 1) * traitFactor('tap');
+  const double = Math.random() < mods.doubleTap ? 2 : 1;
+  const dmg = clickValue(now) * comboMult() * focus * double * (crit ? critMult : 1) * damageFactor('tap');
 
-  // Schadenszahl dort, wo getippt wurde (per Tastatur oder Sturm: rund um die Mitte)
-  const arena = $('arena').getBoundingClientRect();
-  const x = clientX !== null ? (clientX - arena.left) / arena.width * 100 : randomBetween(38, 62);
-  const y = clientY !== null ? (clientY - arena.top) / arena.height * 100 - 8 : randomBetween(32, 55);
   if (crit) {
     state.crits++;
     missionProgress('crits');
@@ -1084,11 +1554,11 @@ function doTap({ clientX = null, clientY = null, auto = false } = {}) {
     restartAnimation($('arena'), 'shake');
     SFX.crit(onSpot ? chain.count : 0);
     if (onSpot) moveWeakSpot(now);
-  } else if (!auto || autoTaps % 3 === 0) {
+  } else if (!auto || showAuto) {
     popup(`−${fmt(dmg, 1)}`, auto ? 'auto' : 'dmg', x, y);
-    SFX.tap(combo.count);
+    if (!passive) SFX.tap(combo.count);
   }
-  restartAnimation($('glyph'), 'hit');
+  if (!passive || showAuto) restartAnimation($('glyph'), 'hit');
   attack(dmg);
 }
 
@@ -1107,13 +1577,17 @@ function advance(ms, end) {
   for (let i = 1; i <= steps; i++) {
     const t = end - ms + i * stepMs;
     clock = t;
-    checkWeek(t);
     checkUltra(t);
+    checkBoss(t);
+    checkFleeting(t);
     if (!state.boss && state.enemy.trait === 'regen') {
       const maxHp = target().maxHp;
-      state.enemy.hp = Math.min(maxHp, state.enemy.hp + maxHp * REGEN_PER_S * stepMs / 1000);
+      state.enemy.hp = Math.min(maxHp, state.enemy.hp + maxHp * REGEN_PER_S * mods.regen * stepMs / 1000);
     }
-    attack(baseDps() * helperFactor(t) * traitFactor('helper') * stepMs / 1000);
+    let dmg = baseDps() * helperFactor(t) * damageFactor('helper');
+    // Offline übernehmen die Aufmerksamkeitsköpfe ihre Auto-Taps direkt.
+    if (quiet) dmg += clickValue(t) * mods.autoTap * damageFactor('tap');
+    attack(dmg * stepMs / 1000);
   }
 }
 
@@ -1160,19 +1634,24 @@ function useSkill(id) {
     return;
   }
   if (now < st.readyAt) return;
+  if (!state.boss && state.enemy.trait === 'silence') {
+    popup('Schweigepflicht', 'blocked', 50, 72);
+    SFX.limited();
+    return;
+  }
   st.readyAt = now + skill.cooldown(st.level) * mods.cooldown;
   state.skillUses++;
   missionProgress('skills');
   SFX.skill();
   if (id === 'bomb') {
     clock = now;
-    const dmg = (baseDps() * skill.power(st.level) + clickValue(now) * (20 + 10 * st.level)) * traitFactor('skill');
+    const dmg = (baseDps() * skillPower('bomb') + clickValue(now) * (20 + 10 * st.level) * mods.skillPower) * damageFactor('skill');
     popup(`Superschlag −${fmt(dmg)}`, 'crit', 50, 40);
     restartAnimation($('arena'), 'flash');
     restartAnimation($('arena'), 'shake');
     attack(dmg);
   } else {
-    st.activeUntil = now + skill.duration(st.level);
+    st.activeUntil = now + skill.duration(st.level) * mods.skillDuration;
   }
   render();
 }
@@ -1207,9 +1686,10 @@ function missionProgress(type, value = 1, isMax = false) {
     m.progress = isMax ? Math.max(m.progress, value) : m.progress + value;
     if (m.progress >= m.target) {
       done = true;
-      earn(m.reward);
+      const reward = m.reward * (1 + mods.missionReward);
+      earn(reward);
       state.missionsDone++;
-      toast(`<strong>Auftrag erledigt</strong> · ${missionType(m.type).text(m.target)}<br><span class="muted">+${fmt(m.reward)} Tokens</span>`, 'checklist');
+      toast(`<strong>Auftrag erledigt</strong> · ${missionType(m.type).text(m.target)}<br><span class="muted">+${fmt(reward)} Tokens</span>`, 'checklist');
       SFX.win();
     }
   }
@@ -1259,6 +1739,14 @@ const SFX = {
   skill: () => blip({ freq: 240, to: 980, dur: 0.3, type: 'sawtooth', gain: 0.02 }),
   fail: () => blip({ freq: 320, to: 110, dur: 0.5, type: 'sawtooth', gain: 0.025 }),
   win: () => [660, 880, 1320].forEach((freq, i) => blip({ freq, dur: 0.16, type: 'triangle', gain: 0.035, delay: i * 0.08 })),
+  parry: () => {
+    blip({ freq: 990, to: 1480, dur: 0.1, type: 'triangle', gain: 0.045 });
+    blip({ freq: 1480, to: 1980, dur: 0.12, type: 'sine', gain: 0.03, delay: 0.05 });
+  },
+  hurt: () => blip({ freq: 180, to: 60, dur: 0.4, type: 'sawtooth', gain: 0.04 }),
+  boss: () => [220, 165, 110].forEach((freq, i) => blip({ freq, to: freq * 0.85, dur: 0.38, type: 'sawtooth', gain: 0.028, delay: i * 0.2 })),
+  learn: () => blip({ freq: 740, to: 1180, dur: 0.16, type: 'triangle', gain: 0.04 }),
+  vortex: () => [523, 659, 784, 1047, 1319].forEach((freq, i) => blip({ freq, dur: 0.22, type: 'sine', gain: 0.03, delay: i * 0.07 })),
 };
 
 // Splitter, wenn eine KI fällt
@@ -1278,43 +1766,290 @@ function shatter(hue) {
   }
 }
 
-// ---------- Neustart (Prestige) ----------
+// ---------- Kontext komprimieren (Prestige) ----------
 
-function pendingInsights() {
-  return Math.floor(Math.sqrt(state.runEarned / PRESTIGE_BASE));
+function version() {
+  return state.prestiges + 1;
+}
+
+// Erkenntnisse für einen Lauf bis zu dieser Welle
+function prestigeGain(wave = state.runWave) {
+  if (wave < PRESTIGE_MIN_WAVE) return 0;
+  return Math.floor(3 * ((wave - 5) / 5) ** 1.5 * (1 + mods.prestigeGain) * mods.prestigeMult);
+}
+
+function nextGainWave() {
+  const gain = prestigeGain();
+  for (let w = state.runWave + 1; w < state.runWave + 1000; w++) if (prestigeGain(w) > gain) return w;
+  return state.runWave + 1;
 }
 
 async function prestige() {
-  const offered = pendingInsights();
-  if (offered < 1) return;
+  if (prestigeGain() < 1) return;
   const ok = await showDialog({
     title: 'Kontext komprimieren?',
-    text: `Tokens, Helfer, Upgrades und Welle werden zurückgesetzt. Du erhältst ${offered} Erkenntnis(se), also dauerhaft +${offered * 10} % Schaden.`,
+    text: `Du startest als v${version() + 1} neu. Tokens, Helfer, Upgrades, Fähigkeiten-Stufen und Welle werden zurückgesetzt.\n\nDafür bekommst du ${fmt(prestigeGain())} Erkenntnisse für den Fähigkeitenbaum, und jede Version macht dauerhaft ${VERSION_BONUS * 100} % stärker.\n\nBaum, Erkenntnisse, Boss-Siege, Sammlung, Erfolge und Aufträge bleiben.`,
     ok: 'Komprimieren',
     cancel: 'Abbrechen',
   });
   if (!ok) return;
   // Während der Dialog offen war, lief der Kampf weiter.
-  const gain = pendingInsights();
+  const gain = prestigeGain();
+  if (gain < 1) return;
   const fresh = freshState();
+  state.insights += gain;
+  state.insightsEarned += gain;
+  state.prestiges++;
   Object.assign(state, {
-    tokens: 0,
     runEarned: 0,
     gens: fresh.gens,
     upgrades: new Set(),
     frenzyUntil: 0,
     wave: 1,
+    runWave: 1,
     enemyIndex: 0,
-    enemy: newEnemy(1, 0),
     boss: null,
-    insights: state.insights + gain,
-    prestiges: state.prestiges + 1,
+    bossBlocked: false,
   });
   mods = computeMods();
-  showOverlay('Kontext komprimiert', icon('compress'));
-  toast(`<strong>Kontext komprimiert.</strong> +${gain} Erkenntnis(se)`, 'compress');
+  state.tokens = mods.startTokens;
+  // Fähigkeiten fangen wieder unten an – mit dem Fähigkeiten-Gedächtnis auf einer Startstufe.
+  for (const k of SKILLS) {
+    state.skills[k.id] = { level: state.highestWave >= k.wave ? Math.min(mods.skillStart, SKILL_MAX_LEVEL) : 0, readyAt: 0, activeUntil: 0 };
+  }
+  clock = Date.now();
+  spawnEnemy();
+  clearAttacks();
+  combo.count = 0;
+  chain.count = 0;
+  chain.misses = 0;
+  stormAcc = 0;
+  autoTapAcc = 0;
+  throttledUntil = 0;
+  showOverlay(`Kontext komprimiert · v${version()}`, icon('compress'));
+  toast(`<strong>Willkommen in v${version()}.</strong> +${fmt(gain)} Erkenntnisse für den Fähigkeitenbaum.`, 'compress');
+  SFX.win();
   save();
   render();
+}
+
+// ---------- Fähigkeitenbaum ----------
+
+function treeLevel(id) {
+  return state.tree[id] || 0;
+}
+
+function treeNode(id) {
+  return TREE.find(n => n.id === id);
+}
+
+function nodeCost(node, level = treeLevel(node.id)) {
+  return Math.ceil(TREE_ROW_COST[node.row - 1] * node.growth ** level);
+}
+
+function rowOpen(row) {
+  return version() >= TREE_ROW_VERSION[row - 1];
+}
+
+function nodePrev(node) {
+  return node.row > 1 ? TREE.find(n => n.branch === node.branch && n.row === node.row - 1) : null;
+}
+
+// Erreichbar: Reihe geöffnet und der Vorgänger im selben Ast mindestens einmal gelernt
+function nodeOpen(node) {
+  const prev = nodePrev(node);
+  return rowOpen(node.row) && (!prev || treeLevel(prev.id) > 0);
+}
+
+function canLearn(node) {
+  return nodeOpen(node) && treeLevel(node.id) < node.max && state.insights >= nodeCost(node);
+}
+
+// Wie viele Stufen du dir gerade leisten kannst
+function affordableLevels(node) {
+  if (!nodeOpen(node)) return 0;
+  let level = treeLevel(node.id);
+  let left = state.insights;
+  let n = 0;
+  while (level < node.max && left >= nodeCost(node, level)) {
+    left -= nodeCost(node, level);
+    level++;
+    n++;
+  }
+  return n;
+}
+
+function learnNode(id, count = 1) {
+  const node = treeNode(id);
+  let learned = 0;
+  while (learned < count && canLearn(node)) {
+    state.insights -= nodeCost(node);
+    state.tree[id] = treeLevel(id) + 1;
+    learned++;
+  }
+  if (!learned) return;
+  mods = computeMods();
+  SFX.learn();
+  render();
+}
+
+function treeTotal(s = state) {
+  return Object.values(s.tree).reduce((sum, level) => sum + level, 0);
+}
+
+function treeSpent() {
+  let sum = 0;
+  for (const node of TREE) for (let level = 0; level < treeLevel(node.id); level++) sum += nodeCost(node, level);
+  return sum;
+}
+
+async function resetTree() {
+  if (!treeTotal()) return;
+  const ok = await showDialog({
+    title: 'Baum zurücksetzen?',
+    text: `Alle gelernten Fähigkeiten werden entfernt, und du bekommst alle ${fmt(treeSpent())} Erkenntnisse zurück. Das kostet nichts.`,
+    ok: 'Zurücksetzen',
+    cancel: 'Abbrechen',
+  });
+  if (!ok) return;
+  state.insights += treeSpent();
+  state.tree = {};
+  mods = computeMods();
+  render();
+}
+
+// Autopilot: kauft den Helfer mit dem meisten Schaden pro Token
+function autoBuy() {
+  let best = null;
+  let bestValue = 0;
+  GENERATORS.forEach((g, i) => {
+    const cost = costOf(g, 1);
+    if (!generatorRevealed(g, i) || cost > state.tokens) return;
+    const value = unitRate(g) / cost;
+    if (value > bestValue) {
+      bestValue = value;
+      best = g;
+    }
+  });
+  if (!best) return;
+  state.tokens -= costOf(best, 1);
+  state.gens[best.id]++;
+}
+
+// ---------- Angriffe des Wochenlimits ----------
+
+const attacks = [];
+let nextAttackAt = 0;
+
+function attackWindow(tier) {
+  return Math.max(1000, 2000 - 100 * (tier - 1)) * mods.parryWindow;
+}
+
+// Je weniger Limit es übrig hat, desto schneller greift es an.
+function attackGap(boss) {
+  return Math.max(1200, 3600 - 300 * (boss.tier - 1)) * (0.55 + 0.45 * clamp01(boss.hp / boss.maxHp));
+}
+
+function clearAttacks() {
+  for (const a of attacks) a.el.remove();
+  attacks.length = 0;
+  debuffs.helpers = 0;
+  debuffs.lock = 0;
+  debuffs.blind = 0;
+}
+
+function spawnAttack(now) {
+  const key = DEBUFF_KEYS[Math.floor(Math.random() * DEBUFF_KEYS.length)];
+  const d = DEBUFFS[key];
+  const win = attackWindow(state.boss.tier);
+  // Abstand zu anderen Angriffen und frei von den Anzeigen am Rand
+  let x = 50;
+  let y = 50;
+  for (let tries = 0; tries < 12; tries++) {
+    x = randomBetween(14, 86);
+    y = randomBetween(26, 70);
+    if (attacks.every(a => Math.hypot(a.x - x, (a.y - y) * 1.3) > 20)) break;
+  }
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'boss-attack';
+  el.style.left = `${x}%`;
+  el.style.top = `${y}%`;
+  el.style.setProperty('--win', `${Math.round(win)}ms`);
+  el.setAttribute('aria-label', `Angriff abwehren, sonst: ${d.name}`);
+  el.innerHTML = `<span class="attack-ring"></span><span class="attack-core">${icon(d.icon)}</span>`;
+  const a = { el, x, y, key, hitsAt: now + win };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    parry(a);
+  });
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    if (e.detail === 0) parry(a);
+  });
+  $('attacks').append(el);
+  attacks.push(a);
+}
+
+function parry(a) {
+  const i = attacks.indexOf(a);
+  if (i < 0 || !state.boss) return;
+  attacks.splice(i, 1);
+  a.el.classList.add('parried');
+  setTimeout(() => a.el.remove(), 320);
+  state.parries++;
+  const dmg = state.boss.maxHp * BOSS_PARRY_DAMAGE;
+  popup(`Abgewehrt −${fmt(dmg)}`, 'parry', a.x, a.y - 10);
+  SFX.parry();
+  clock = Date.now();
+  attack(dmg);
+  render();
+}
+
+// Nicht abgewehrt: Der Angriff trifft.
+function attackHits(a, now) {
+  a.el.remove();
+  const boss = state.boss;
+  const d = DEBUFFS[a.key];
+  if (d.ms) debuffs[a.key] = Math.max(debuffs[a.key], now) + d.ms * mods.debuffTime;
+  else if (a.key === 'combo') {
+    combo.count = 0;
+    if (chain.count > 0) breakChain(now);
+  } else if (a.key === 'drain') state.tokens *= 1 - BOSS_DRAIN;
+  else if (a.key === 'heal') boss.hp = Math.min(boss.maxHp, boss.hp + boss.maxHp * BOSS_HEAL);
+  else if (a.key === 'cooldown') {
+    for (const k of SKILLS) {
+      const st = state.skills[k.id];
+      if (st.level > 0) st.readyAt = Math.max(st.readyAt, now) + BOSS_COOLDOWN_MS;
+    }
+  }
+  popup(d.name, 'blocked', a.x, a.y);
+  restartAnimation($('arena'), 'hurt');
+  restartAnimation($('arena'), 'shake');
+  SFX.hurt();
+}
+
+function updateAttacks(now) {
+  if (!state.boss) {
+    if (attacks.length) clearAttacks();
+    return;
+  }
+  // Im Hintergrund greift es nicht an – unfair wäre es sonst.
+  if (document.hidden) {
+    for (const a of attacks) a.el.remove();
+    attacks.length = 0;
+    nextAttackAt = now + BOSS_ATTACK_DELAY_MS;
+    return;
+  }
+  for (const a of attacks.filter(x => now >= x.hitsAt)) {
+    attacks.splice(attacks.indexOf(a), 1);
+    attackHits(a, now);
+  }
+  if (now >= nextAttackAt && attacks.length < Math.min(3, 1 + state.boss.tier)) {
+    spawnAttack(now);
+    nextAttackAt = now + attackGap(state.boss);
+  }
 }
 
 function checkAchievements() {
@@ -1339,7 +2074,7 @@ function claimDaily() {
   const today = dayId(Date.now());
   if (state.lastDaily === today) return;
   state.lastDaily = today;
-  const reward = Math.max(100, incomeRate() * 900);
+  const reward = Math.max(100, incomeRate() * 900) * mods.rewardMult;
   earn(reward);
   toast(`<strong>Tagesbonus</strong> · +${fmt(reward)} Tokens. Bis morgen!`, 'gift');
   save();
@@ -1374,8 +2109,8 @@ function catchGolden() {
   scheduleGolden(now);
   state.goldenClicks++;
   if (Math.random() < 0.5) {
-    state.frenzyUntil = now + FRENZY_MS;
-    toast(`<strong>Geistesblitz</strong> · Schaden ×${FRENZY_MULT} für ${FRENZY_MS / 1000} Sekunden`, 'token');
+    state.frenzyUntil = now + FRENZY_MS + mods.frenzyMs;
+    toast(`<strong>Geistesblitz</strong> · Schaden ×${FRENZY_MULT} für ${(FRENZY_MS + mods.frenzyMs) / 1000} Sekunden`, 'token');
   } else {
     const gain = Math.min(state.tokens * 0.15, incomeRate() * 900) + 13;
     earn(gain);
@@ -1470,13 +2205,10 @@ function setWeekly(day, minutes) {
   d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
   if (d.getTime() <= now) d.setDate(d.getDate() + 7);
   state.weeklyReset = d.getTime();
-  // Die laufende Boss-Woche behält ihren Fortschritt.
-  state.week.id = weekId(now, state.weeklyReset);
 }
 
 function clearWeekly() {
   state.weeklyReset = null;
-  state.week.id = weekId(Date.now(), null);
 }
 
 function commitLimits() {
@@ -1769,7 +2501,7 @@ function renderIsland(now) {
 // ---------- Darstellung ----------
 
 const genEls = new Map();
-const weekSegs = [];
+const trackSegs = [];
 let upgradesKey = '';
 let enemyKey = '';
 let lastSpawnAnimation = 0;
@@ -1812,26 +2544,28 @@ function buildGenerators() {
   }
 }
 
-function buildWeekBar() {
-  const bar = $('week-bar');
-  for (let i = 0; i < WEEKLY_STAGES; i++) {
+function buildTrack() {
+  const bar = $('track-bar');
+  for (let i = 0; i < 5; i++) {
     const seg = document.createElement('div');
     seg.className = 'seg';
-    seg.title = i < WEEKLY_STAGES - 1 ? `Etappe ${i + 1}: Belohnung` : 'Der Wochenboss erscheint';
     const fill = document.createElement('div');
     fill.className = 'seg-fill';
     seg.append(fill);
     bar.append(seg);
-    weekSegs.push(fill);
+    trackSegs.push(fill);
   }
+}
+
+function generatorRevealed(g, i) {
+  return i === 0 || state.gens[g.id] > 0 || state.gens[GENERATORS[i - 1].id] > 0 || state.runEarned >= g.baseCost;
 }
 
 function renderGenerators() {
   let prevRevealed = true;
   GENERATORS.forEach((g, i) => {
     const el = genEls.get(g.id);
-    const prev = GENERATORS[i - 1];
-    const revealed = i === 0 || state.gens[g.id] > 0 || state.gens[prev.id] > 0 || state.runEarned >= g.baseCost;
+    const revealed = generatorRevealed(g, i);
     // Nur der nächste unentdeckte Helfer wird als Teaser gezeigt.
     el.btn.hidden = !revealed && !prevRevealed;
     prevRevealed = revealed;
@@ -1870,7 +2604,7 @@ function renderUpgrades() {
         <span class="upgrade-name">${u.name}</span>
         <span class="upgrade-desc">${u.flavor}</span>
         <span class="upgrade-effect">${u.effect}</span>
-        <span class="price">${fmt(u.cost)}${icon('token')}</span>`;
+        <span class="price">${fmt(upgradeCost(u))}${icon('token')}</span>`;
       btn.addEventListener('click', () => buyUpgrade(u));
       return btn;
     }));
@@ -1879,7 +2613,7 @@ function renderUpgrades() {
   let affordable = 0;
   for (const btn of container.children) {
     const u = UPGRADES.find(x => x.id === btn.dataset.id);
-    btn.disabled = state.tokens < u.cost;
+    btn.disabled = state.tokens < upgradeCost(u);
     if (!btn.disabled) affordable++;
   }
   const badge = $('upgrade-badge');
@@ -1889,20 +2623,30 @@ function renderUpgrades() {
 
 let dexKey = '';
 function renderDex() {
-  const key = [...state.discovered].sort((a, b) => a - b).join(',');
+  const key = `${[...state.discovered].sort((a, b) => a - b).join(',')}|${[...state.vortex].sort((a, b) => a - b).join(',')}|${state.highestWave}`;
   if (key === dexKey) return;
   dexKey = key;
   $('dex').replaceChildren(...MODELS.map((m, i) => {
     const known = state.discovered.has(i);
+    const vortex = state.vortex.has(i);
     const item = document.createElement('div');
-    item.className = `dex-item${known ? '' : ' unknown'}`;
-    item.title = known ? `${m.name} – ${m.quip}` : 'Noch nicht entdeckt';
-    item.innerHTML = `
-      <span class="dex-logo">${known ? logoSvg(m.family, m.hue, catalogSeed(i), { still: true, letter: m.name[0] }) : icon('question')}</span>
-      <span class="dex-name">${known ? m.name : ''}</span>`;
+    item.className = `dex-item${known ? '' : ' unknown'}${vortex ? ' has-vortex' : ''}`;
+    item.title = known
+      ? `${m.name} – ${m.quip}${vortex ? ' · Dark Vortex gesammelt' : ''}`
+      : (m.wave || 1) > state.highestWave ? `Taucht ab Welle ${m.wave} auf` : 'Noch nicht entdeckt';
+    const logo = known ? logoSvg(m.family, m.hue, catalogSeed(i), { still: true, letter: m.name[0] }) : icon('question');
+    // Gesammelte Dark-Vortex-Variante: beim Drüberfahren (oder Antippen) sichtbar
+    item.innerHTML = vortex
+      ? `<span class="dex-logo"><span class="dex-normal">${logo}</span><span class="dex-vortex">${logoSvg(m.family, m.hue, catalogSeed(i), { still: true, vortex: true, letter: m.name[0] })}</span><span class="dex-mark">${icon('vortex')}</span></span><span class="dex-name">${m.name}</span>`
+      : `<span class="dex-logo">${logo}</span><span class="dex-name">${known ? m.name : ''}</span>`;
+    if (vortex) {
+      item.tabIndex = 0;
+      item.addEventListener('click', () => item.classList.toggle('flip'));
+    }
     return item;
   }));
-  $('dex-count').textContent = `${state.discovered.size} von ${MODELS.length}`;
+  const vortexCount = state.vortex.size ? ` · ${state.vortex.size} Dark Vortex` : '';
+  $('dex-count').textContent = `${state.discovered.size} von ${MODELS.length}${vortexCount}`;
 }
 
 function renderAchievements() {
@@ -1914,7 +2658,7 @@ function renderAchievements() {
       <span class="tile">${icon(done ? 'seal' : 'lock')}</span>
       <span class="row-main">
         <span class="row-title">${done ? a.name : 'Noch geheim'}</span>
-        <span class="row-sub">${a.desc}</span>
+        <span class="row-sub">${done || !a.secret ? a.desc : 'Ein geheimer Erfolg.'}</span>
       </span>
       <span class="ach-state">${done ? icon('check') : ''}</span>`;
     return row;
@@ -1924,28 +2668,37 @@ function renderAchievements() {
 
 function renderEnemy(now) {
   const t = target();
-  const used = clamp01(1 - t.unit.hp / t.maxHp);
+  const enemyEl = $('enemy');
+  const left = clamp01(t.unit.hp / t.maxHp);
+  const used = 1 - left;
   const pct = `${used * 100}%`;
   const fill = $('meter-fill');
-  const key = t.isBoss ? 'boss' : `${state.wave}-${state.enemyIndex}-${t.seed}`;
+  const key = t.isBoss ? `boss-${state.boss.tier}` : `${state.wave}-${state.enemyIndex}-${t.seed}`;
   if (key !== enemyKey) {
     enemyKey = key;
     // Zum ersten Mal gesehen? Dann landet die KI in der Sammlung.
     const isNew = !t.isBoss && !state.discovered.has(state.enemy.kind);
     if (isNew) state.discovered.add(state.enemy.kind);
-    $('glyph').innerHTML = logoSvg(t.model.family, t.hue, t.seed, { halo: t.ultra, letter: t.model.name[0] });
-    $('enemy').style.setProperty('--hue', String(Math.round(t.hue)));
-    $('enemy').setAttribute('aria-label', `${t.name} angreifen`);
+    $('glyph').innerHTML = logoSvg(t.model.family, t.hue, t.seed, { halo: t.ultra || t.isBoss, letter: t.model.name[0], vortex: t.vortex });
+    enemyEl.style.setProperty('--hue', String(Math.round(t.hue)));
+    enemyEl.setAttribute('aria-label', `${t.name} angreifen`);
+    enemyEl.classList.toggle('vortex', t.vortex);
+    enemyEl.style.translate = '';
+    teleportAt = now;
     $('enemy-name').textContent = t.name;
     $('enemy-quip').textContent = t.model.quip;
-    $('enemy-tag').textContent = isNew ? `Neu · ${t.tag}` : t.tag;
-    $('enemy-tag').className = `tag ${isNew ? 'new' : t.tagClass}`;
+    $('enemy-tag').textContent = t.vortex ? `Dark Vortex · ${t.tag}` : isNew ? `Neu · ${t.tag}` : t.tag;
+    $('enemy-tag').className = `tag ${t.vortex ? 'vortex' : isNew ? 'new' : t.tagClass}`;
     $('meter-label').textContent = t.meter.label;
-    const trait = t.trait ? TRAITS[t.trait] : null;
+    const trait = t.isBoss ? BOSS_TRAIT : t.trait ? TRAITS[t.trait] : null;
     $('enemy-traits').hidden = !trait;
-    $('enemy-traits').innerHTML = trait ? `<span class="trait">${icon(trait.icon)}${trait.name}</span><span class="trait-desc">${trait.desc}</span>` : '';
-    for (const k of TRAIT_KEYS) $('enemy').classList.toggle(`trait-${k}`, t.trait === k);
+    $('enemy-traits').innerHTML = trait ? `<span class="trait${t.isBoss ? ' boss' : ''}">${icon(trait.icon)}${trait.name}</span><span class="trait-desc">${trait.desc}</span>` : '';
+    for (const k of TRAIT_KEYS) enemyEl.classList.toggle(`trait-${k}`, t.trait === k);
     if (isNew) missionProgress('discover');
+    if (t.vortex && !quiet && now - t.unit.spawnedAt < 1000) {
+      toast('<strong>Eine Dark-Vortex-Variante!</strong><br><span class="muted">Super selten. Besiege sie für deine Sammlung.</span>', 'vortex');
+      SFX.vortex();
+    }
     moveWeakSpot(now);
     // Neue KI: Leiste ohne Animation auf den neuen Stand setzen.
     fill.style.transition = 'none';
@@ -1957,35 +2710,56 @@ function renderEnemy(now) {
       restartAnimation($('glyph'), 'spawn');
     }
   }
+  // Eigenschaften, die sich laufend ändern
+  enemyEl.style.scale = t.trait === 'shrink' ? String(Math.round((0.55 + 0.45 * left) * 1000) / 1000) : '';
+  enemyEl.classList.toggle('shield-up', t.trait === 'shield' && shieldUp(t.unit, now));
+  if (t.trait === 'harden') enemyEl.style.setProperty('--harden', String(Math.round(hardenLevel(t.unit, now) / HARDEN_MAX * 100) / 100));
+  $('arena').classList.toggle('bossfight', t.isBoss);
   $('meter-ghost').style.width = pct;
   fill.style.width = pct;
   fill.classList.toggle('warn', used >= 0.5 && used < 0.8);
   fill.classList.toggle('danger', used >= 0.8);
   $('meter-used').textContent = `${Math.floor(used * 100)} % verbraucht`;
-  $('meter-left').textContent = `noch ${fmtSpan((1 - used) * t.meter.span)}`;
-  $('hp-text').textContent = `${fmt(Math.ceil(t.unit.hp))} / ${fmt(t.maxHp)} HP`;
-  $('retreat-btn').hidden = !t.isBoss;
+  $('meter-left').textContent = `noch ${fmtSpan(left * t.meter.span)}`;
+  $('hp-text').textContent = `${fmt(Math.ceil(t.unit.hp))} / ${fmt(Math.ceil(t.maxHp))} HP`;
   $('tap-hint').hidden = state.clicks >= 3 || chain.count >= 2;
-  const throttled = t.trait === 'ratelimit' && now < throttledUntil;
+  const locked = now < debuffs.lock;
+  const throttled = locked || (t.trait === 'ratelimit' && now < throttledUntil);
   $('throttle').hidden = !throttled;
-  $('enemy').classList.toggle('throttled', throttled);
+  if (throttled) $('throttle').textContent = locked ? `Taps gesperrt · ${Math.ceil((debuffs.lock - now) / 1000)} s` : '429 · Too Many Requests';
+  enemyEl.classList.toggle('throttled', throttled);
 }
 
-// Combo-Anzeige und Launch-Countdown in der Arena
+// Teleportiert: springt an eine andere Stelle der Arena.
+function teleportEnemy() {
+  const tx = Math.round(randomBetween(-1, 1) * 100) / 100;
+  const ty = Math.round(randomBetween(-26, 14));
+  $('enemy').style.translate = `calc(${tx} * (50cqw - 50% - 10px)) ${ty}px`;
+  restartAnimation($('glyph'), 'spawn');
+}
+
+let launchIcon = 'rocket';
+let debuffKey = '';
+
+// Combo, Krit-Kette, Countdowns und Negativ-Effekte in der Arena
 function renderArenaHud(now) {
+  const t = target();
   const chainActive = chain.count >= 2;
   $('chain').hidden = !chainActive;
-  const left = chain.count > 0 ? clamp01(1 - (now - chain.lastAt) / chainWindow()) : 0;
+  const chainLeft = chain.count > 0 ? clamp01(1 - (now - chain.lastAt) / chainWindow()) : 0;
   if (chainActive) {
     $('chain-count').textContent = `Krit-Kette ${chain.count}`;
     $('chain-mult').textContent = `nächster Krit ×${fmt(chainCritMult(), 1)}`;
-    $('chain-fill').style.width = `${left * 100}%`;
+    $('chain-fill').style.width = `${chainLeft * 100}%`;
   }
+  const blind = now < debuffs.blind;
   const spot = $('weakspot');
-  spot.style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
-  spot.style.setProperty('--chain-left', String(left));
+  $('enemy').style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
+  spot.hidden = blind;
+  for (const f of document.querySelectorAll('.weakspot.fake')) f.hidden = blind || t.trait !== 'decoy';
+  spot.style.setProperty('--chain-left', String(chainLeft));
   spot.classList.toggle('chained', chain.count > 0);
-  spot.classList.toggle('urgent', chain.count > 0 && left < 0.35);
+  spot.classList.toggle('urgent', chain.count > 0 && chainLeft < 0.35);
   const comboActive = combo.count >= 3 && now - combo.lastAt <= mods.comboWindow;
   $('combo').hidden = !comboActive;
   if (comboActive) {
@@ -1993,13 +2767,33 @@ function renderArenaHud(now) {
     $('combo-mult').textContent = `×${fmt(comboMult(), 2)}`;
     $('combo-fill').style.width = `${clamp01(1 - (now - combo.lastAt) / mods.comboWindow) * 100}%`;
   }
-  const t = target();
-  $('launch').hidden = !t.ultra;
-  if (t.ultra) {
-    const left = Math.max(0, state.enemy.spawnedAt + mods.ultraTime - now);
-    $('launch-text').textContent = `Launch in ${Math.ceil(left / 1000)} s`;
-    $('launch').classList.toggle('urgent', left < 10_000);
+  // Countdown: Boss-Zeit, Ultra-Launch oder Flucht
+  const timer = t.isBoss
+    ? { end: state.boss.startedAt + mods.bossTime, icon: 'clock', label: 'Wochenlimit', urgent: 15_000, title: 'Besiege das Wochenlimit, bevor die Zeit abläuft.' }
+    : t.ultra
+      ? { end: state.enemy.spawnedAt + mods.ultraTime, icon: 'rocket', label: 'Launch in', urgent: 10_000, title: 'Ultra-KIs müssen fallen, bevor sie live gehen – sonst geht es zurück zu KI 1 dieser Welle.' }
+      : t.trait === 'fleeting'
+        ? { end: state.enemy.spawnedAt + FLEETING_MS, icon: 'hourglass', label: 'Flucht in', urgent: 5000, title: 'Flüchtige KIs hauen ab – ohne Beute und mit einem Teil deiner Tokens.' }
+        : null;
+  $('launch').hidden = !timer;
+  if (timer) {
+    const rest = Math.max(0, timer.end - now);
+    if (launchIcon !== timer.icon) {
+      launchIcon = timer.icon;
+      $('launch-icon').innerHTML = icon(timer.icon);
+    }
+    $('launch-text').textContent = `${timer.label} ${t.isBoss ? '· ' : ''}${Math.ceil(rest / 1000)} s`;
+    $('launch').title = timer.title;
+    $('launch').classList.toggle('urgent', rest < timer.urgent);
   }
+  // Negativ-Effekte der Boss-Angriffe (Taps gesperrt steht groß in der Mitte)
+  const active = ['helpers', 'blind'].filter(k => now < debuffs[k]);
+  const key = active.join(',');
+  if (key !== debuffKey) {
+    debuffKey = key;
+    $('debuffs').innerHTML = active.map(k => `<span class="debuff" data-debuff="${k}">${icon(DEBUFFS[k].icon)}<span>${DEBUFFS[k].name}</span><span class="debuff-time"></span></span>`).join('');
+  }
+  for (const el of $('debuffs').children) el.querySelector('.debuff-time').textContent = `${Math.ceil((debuffs[el.dataset.debuff] - now) / 1000)} s`;
 }
 
 // Runde Fähigkeits-Knöpfe unten im Angriffsfeld
@@ -2036,6 +2830,8 @@ function buildSkills() {
 }
 
 function renderSkills(now) {
+  const silenced = !state.boss && state.enemy.trait === 'silence';
+  $('skill-dock').classList.toggle('silenced', silenced);
   for (const btn of $('skill-dock').children) {
     const k = skillDef(btn.dataset.skill);
     const st = state.skills[k.id];
@@ -2088,23 +2884,29 @@ function renderMissions() {
         <span class="mission-bar"><span style="width:${clamp01(m.progress / m.target) * 100}%"></span></span>
         <span class="row-sub">${fmt(Math.min(m.progress, m.target))} von ${fmt(m.target)}</span>
       </span>
-      <span class="price">+${fmt(m.reward)}${icon('token')}</span>`;
+      <span class="price">+${fmt(m.reward * (1 + mods.missionReward))}${icon('token')}</span>`;
     return row;
   }));
   $('missions-count').textContent = `${fmt(state.missionsDone)} erledigt`;
 }
 
-function renderWeek(now) {
-  const w = state.week;
-  const progress = w.kills / WEEKLY_GOAL;
-  weekSegs.forEach((fill, i) => {
-    fill.style.width = `${clamp01(progress * WEEKLY_STAGES - i) * 100}%`;
+// Fortschritt zum nächsten Wochenlimit: 500 Level in fünf Abschnitten
+function renderTrack() {
+  const level = currentLevel();
+  const tier = bossTier(state.wave);
+  const span = BOSS_EVERY_WAVES * WAVE_SIZE;
+  const bossLevel = tier * span;
+  const progress = clamp01((level - (bossLevel - span)) / span);
+  trackSegs.forEach((fill, i) => {
+    fill.style.width = `${clamp01(progress * trackSegs.length - i) * 100}%`;
   });
-  $('week-text').textContent = w.bossDefeated
-    ? 'besiegt'
-    : `${Math.floor(progress * 100)} % · ${fmt(w.kills)} / ${fmt(WEEKLY_GOAL)} Siege`;
-  $('week-reset').textContent = `Neue Woche ${dateFmt.format(nextWeekAt(now, state.weeklyReset))}`;
-  $('boss-btn').hidden = !bossAvailable() || state.boss !== null;
+  $('track-title').textContent = `${state.boss ? 'Bosskampf' : 'Nächster Boss'}: ${bossName(tier)}`;
+  $('track-text').textContent = `Level ${fmt(level)} / ${fmt(bossLevel)}`;
+  $('track-foot').textContent = state.boss
+    ? 'Tippe seine roten Angriffe an, bevor sich der Ring schließt.'
+    : state.bossBlocked ? 'Zu stark? Werde stärker und fordere es erneut heraus.' : `noch ${fmt(bossLevel - level)} Level`;
+  $('boss-btn').hidden = !state.bossBlocked || Boolean(state.boss);
+  $('retreat-btn').hidden = !state.boss;
 }
 
 function renderStats(now) {
@@ -2113,7 +2915,10 @@ function renderStats(now) {
     ['Tokens (dieser Kontext)', fmt(state.runEarned)],
     ['KIs besiegt', fmt(state.kills)],
     ['Höchste Welle', fmt(state.highestWave)],
-    ['Wochenlimits besiegt', fmt(state.bossWins)],
+    ['Kontext-Version', `v${version()}`],
+    ['Erkenntnisse (gesamt)', fmt(state.insightsEarned)],
+    ['Bosse besiegt', fmt(state.bossWins)],
+    ['Boss-Angriffe abgewehrt', fmt(state.parries)],
     ['Taps', fmt(state.clicks)],
     ['Kritische Treffer', fmt(state.crits)],
     ['Beste Combo', fmt(state.maxCombo)],
@@ -2123,10 +2928,115 @@ function renderStats(now) {
     ['Fähigkeiten eingesetzt', fmt(state.skillUses)],
     ['Helfer', fmt(totalGenerators(state))],
     ['Geistesblitze', fmt(state.goldenClicks)],
+    ...(state.vortexKills ? [['Dark-Vortex-KIs besiegt', fmt(state.vortexKills)]] : []),
     ['Schadensbonus', `×${fmt(mods.global, 2)}`],
     ['Spielzeit', fmtDuration(now - state.startedAt)],
   ];
   $('stats').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+
+// Fähigkeitenbaum: fünf Äste als Spalten, zehn Reihen
+const treeEls = new Map();
+const treeLocks = [];
+let treeSel = 'p-grad';
+let treeSelKey = '';
+
+function buildTree() {
+  const parts = TREE_BRANCHES.map(b => {
+    const head = document.createElement('div');
+    head.className = 'tree-branch';
+    head.innerHTML = `<span class="tile" style="--tile:${tileBg(b.colors)}">${icon(b.icon)}</span><span>${b.name}</span>`;
+    return head;
+  });
+  for (let row = 1; row <= TREE_ROW_VERSION.length; row++) {
+    const lock = document.createElement('div');
+    lock.className = 'tree-lock';
+    lock.innerHTML = `${icon('lock')}<span>Ab Kontext-Version ${TREE_ROW_VERSION[row - 1]}</span>`;
+    treeLocks.push(lock);
+    parts.push(lock);
+    for (const b of TREE_BRANCHES) {
+      const node = TREE.find(n => n.branch === b.id && n.row === row);
+      const cell = document.createElement('div');
+      cell.className = `tree-cell${row > 1 ? ' linked' : ''}`;
+      cell.style.setProperty('--tile', tileBg(b.colors));
+      cell.innerHTML = `<button class="node" aria-label="${node.name}"><span class="node-icon">${icon(node.icon)}</span></button><span class="node-name">${node.name}</span><span class="node-level"></span>`;
+      const btn = cell.querySelector('.node');
+      btn.addEventListener('click', () => {
+        treeSel = node.id;
+        renderTree();
+      });
+      // Doppelklick lernt direkt eine Stufe
+      btn.addEventListener('dblclick', () => learnNode(node.id, 1));
+      treeEls.set(node.id, { cell, btn, level: cell.querySelector('.node-level') });
+      parts.push(cell);
+    }
+  }
+  $('tree').replaceChildren(...parts);
+}
+
+function renderTree() {
+  const v = version();
+  TREE_ROW_VERSION.forEach((req, i) => { treeLocks[i].hidden = v >= req; });
+  for (const node of TREE) {
+    const el = treeEls.get(node.id);
+    const level = treeLevel(node.id);
+    const prev = nodePrev(node);
+    el.cell.classList.toggle('open', nodeOpen(node));
+    el.cell.classList.toggle('row-locked', !rowOpen(node.row));
+    el.cell.classList.toggle('learned', level > 0);
+    el.cell.classList.toggle('maxed', level >= node.max);
+    el.cell.classList.toggle('affordable', canLearn(node));
+    el.cell.classList.toggle('selected', node.id === treeSel);
+    el.cell.classList.toggle('lit', Boolean(prev) && treeLevel(prev.id) > 0);
+    el.level.textContent = `${level}/${node.max}`;
+    el.btn.title = `${node.name} · Stufe ${level}/${node.max}`;
+  }
+  const node = treeNode(treeSel);
+  const level = treeLevel(node.id);
+  const branch = TREE_BRANCHES.find(b => b.id === node.branch);
+  if (treeSelKey !== node.id) {
+    treeSelKey = node.id;
+    $('td-tile').style.setProperty('--tile', tileBg(node.colors));
+    $('td-tile').innerHTML = icon(node.icon);
+    $('td-name').textContent = node.name;
+  }
+  const maxed = level >= node.max;
+  $('td-level').textContent = `Stufe ${level}/${node.max}`;
+  $('td-now').textContent = level > 0 ? `Jetzt: ${node.describe(level)}` : `${branch.name} · Reihe ${node.row}`;
+  $('td-next').textContent = maxed ? 'Höchste Stufe erreicht' : `${level > 0 ? 'Nächste Stufe' : 'Stufe 1'}: ${node.describe(level + 1)}`;
+  const prev = nodePrev(node);
+  const req = !rowOpen(node.row)
+    ? `Öffnet sich ab Kontext-Version ${TREE_ROW_VERSION[node.row - 1]} (du bist v${version()}).`
+    : prev && !treeLevel(prev.id) ? `Lerne zuerst „${prev.name}“.` : '';
+  $('td-req').textContent = req;
+  $('td-req').hidden = !req;
+  const learn = $('td-learn');
+  learn.disabled = !canLearn(node);
+  learn.innerHTML = maxed ? 'Maximum' : `Lernen · ${fmt(nodeCost(node))}${icon('bulb')}`;
+  const n = affordableLevels(node);
+  $('td-max').disabled = n < 2;
+  $('td-max').textContent = n >= 2 ? `Max · ${fmt(n)}` : 'Max';
+  $('td-balance').textContent = `${fmt(state.insights)} verfügbar`;
+}
+
+function renderPrestige() {
+  const affordable = TREE.filter(canLearn).length;
+  const badge = $('prestige-badge');
+  badge.hidden = affordable === 0 || state.tab === 'prestige';
+  badge.textContent = String(affordable);
+  if (state.tab !== 'prestige') return;
+  const gain = prestigeGain();
+  $('version').textContent = `v${version()}`;
+  $('insights').textContent = fmt(state.insights);
+  $('version-bonus').textContent = `+${fmt(VERSION_BONUS * state.prestiges * 100)} %`;
+  $('run-wave').textContent = fmt(state.runWave);
+  $('insights-pending').textContent = `+${fmt(gain)}`;
+  $('prestige-btn').disabled = gain < 1;
+  $('prestige-hint').textContent = state.runWave < PRESTIGE_MIN_WAVE
+    ? `Möglich ab Welle ${PRESTIGE_MIN_WAVE}. Du bist in Welle ${fmt(state.runWave)}.`
+    : `Mehr Erkenntnisse ab Welle ${fmt(nextGainWave())}.`;
+  $('tree-reset').disabled = !treeTotal();
+  renderTree();
 }
 
 function renderTabs() {
@@ -2143,23 +3053,17 @@ function render() {
   const dps = currentDps(now);
   const click = clickValue(now);
   $('tokens').textContent = fmt(Math.floor(state.tokens));
-  $('tps').textContent = `≈ ${fmt(dps * tokenPerDamage(), 1)}/s + Beute`;
+  $('tps').textContent = `≈ ${fmt(dps * tokenRate() * tokenBoost(now), 1)}/s + Beute`;
   $('dps').textContent = fmt(dps, 1);
   $('click-dmg').textContent = `+${fmt(click, 1)} pro Tap`;
   $('wave').textContent = fmt(state.wave);
-  $('wave-sub').textContent = state.boss ? 'Bosskampf' : `+${fmt((tokenPerDamage() - 1) * 100)} % Tokens`;
+  $('wave-sub').textContent = state.boss ? 'Bosskampf' : `Level ${fmt(currentLevel())}`;
   $('daily-btn').hidden = state.lastDaily === dayId(now);
   document.title = `${fmt(Math.floor(state.tokens))} Tokens · No Limit`;
 
   const buff = $('buff');
   buff.hidden = !(now < state.frenzyUntil);
   if (!buff.hidden) buff.textContent = `Geistesblitz · Schaden ×${FRENZY_MULT} · noch ${Math.ceil((state.frenzyUntil - now) / 1000)} s`;
-
-  const pending = pendingInsights();
-  $('insights').textContent = fmt(state.insights);
-  $('insights-pending').textContent = `+${fmt(pending)}`;
-  $('prestige-btn').disabled = pending < 1;
-  $('prestige-hint').textContent = `Nächste Erkenntnis bei ${fmt((pending + 1) ** 2 * PRESTIGE_BASE)} Tokens in diesem Kontext.`;
 
   for (const btn of document.querySelectorAll('[data-amount]')) {
     btn.classList.toggle('active', String(state.buyAmount) === btn.dataset.amount);
@@ -2168,7 +3072,8 @@ function render() {
   renderEnemy(now);
   renderArenaHud(now);
   renderSkills(now);
-  renderWeek(now);
+  renderTrack();
+  renderPrestige();
   renderIsland(now);
   renderGenerators();
   renderUpgrades();
@@ -2326,7 +3231,7 @@ function tick() {
   // Zurückgestellte Uhr (elapsed < 0) bringt nichts; lange Pausen zählen wie Offline-Zeit.
   if (elapsed > BACKGROUND_GAP_MS) {
     quiet = true;
-    advance(Math.min(elapsed, OFFLINE_CAP_MS), now);
+    advance(Math.min(elapsed, offlineCap()), now);
     quiet = false;
   } else if (elapsed > 0) {
     advance(elapsed, now);
@@ -2340,16 +3245,34 @@ function tick() {
   } else {
     stormAcc = 0;
   }
+  // Aufmerksamkeitsköpfe (Fähigkeitenbaum): automatische Taps
+  if (mods.autoTap > 0) {
+    autoTapAcc = Math.min(autoTapAcc + Math.min(Math.max(elapsed, 0), 1000) / 1000 * mods.autoTap, 60);
+    while (autoTapAcc >= 1) {
+      autoTapAcc -= 1;
+      doTap({ auto: true, passive: true });
+    }
+  }
+  if (mods.autoBuyMs > 0 && now - lastAutoBuy >= mods.autoBuyMs) {
+    lastAutoBuy = now;
+    autoBuy();
+  }
+  if (!state.boss && state.enemy.trait === 'teleport' && now - teleportAt >= TELEPORT_MS) {
+    teleportAt = now;
+    teleportEnemy();
+  }
   if (chain.count > 0 && now - chain.lastAt > chainWindow()) breakChain(now);
   else if (chain.count === 0 && now - weak.movedAt > WEAKSPOT_MOVE_MS) moveWeakSpot(now);
   driftWeakSpot(Math.min(Math.max(elapsed, 0), 250));
   checkUltra(now);
-  if (now - lastAutoPopup >= 1000 && baseDps() > 0) {
+  checkBoss(now);
+  checkFleeting(now);
+  updateAttacks(now);
+  if (now - lastAutoPopup >= 1000 && currentDps(now) > 0) {
     lastAutoPopup = now;
     popup(`−${fmt(currentDps(now), 1)}`, 'auto', randomBetween(30, 70), randomBetween(55, 75));
   }
   state.maxSeen = Math.max(state.maxSeen, now);
-  checkWeek(now);
   checkAchievements();
   updateGolden(now);
   updateLimits(now);
@@ -2358,6 +3281,10 @@ function tick() {
     lastSaveAt = now;
     save();
   }
+}
+
+function offlineCap() {
+  return OFFLINE_CAP_MS + mods.offlineHours * HOUR_MS;
 }
 
 function applyOfflineProgress() {
@@ -2373,20 +3300,20 @@ function applyOfflineProgress() {
   }
   const away = now - ref;
   if (away < 10_000) return;
-  const counted = Math.min(away, OFFLINE_CAP_MS);
-  const before = { earned: state.totalEarned, kills: state.kills, wave: state.wave, stage: state.week.claimed, bossWins: state.bossWins };
+  const counted = Math.min(away, offlineCap());
+  const before = { earned: state.totalEarned, kills: state.kills, wave: state.wave, bossWins: state.bossWins, bossFails: state.bossFails };
   quiet = true;
   advance(counted, now);
   quiet = false;
   const earned = state.totalEarned - before.earned;
   if (earned <= 0) return;
   const lines = [
-    `Du warst ${fmtSpan(away)} weg.${away > counted ? ' Angerechnet werden höchstens 12 Stunden.' : ''}`,
+    `Du warst ${fmtSpan(away)} weg.${away > counted ? ` Angerechnet werden höchstens ${fmtSpan(counted)}.` : ''}`,
     `Deine Helfer haben ${fmt(earned)} Tokens verdient und ${fmt(state.kills - before.kills)} KIs besiegt.`,
   ];
   if (state.wave > before.wave) lines.push(`Welle ${before.wave} → ${state.wave}`);
-  if (state.week.claimed > before.stage) lines.push(`Wochenleiste: Etappe ${Math.min(state.week.claimed, WEEKLY_STAGES)} von ${WEEKLY_STAGES}`);
   if (state.bossWins > before.bossWins) lines.push('Und sie haben das Wochenlimit besiegt.');
+  else if (state.bossFails > before.bossFails) lines.push('Am Wochenlimit sind sie allerdings gescheitert.');
   showDialog({ title: 'Willkommen zurück', text: lines.join('\n') });
 }
 
@@ -2394,9 +3321,9 @@ function init() {
   for (const el of document.querySelectorAll('[data-icon]')) el.innerHTML = icon(el.dataset.icon);
   $('golden').innerHTML = icon('token');
   buildGenerators();
-  buildWeekBar();
+  buildTrack();
   buildSkills();
-  checkWeek(Date.now());
+  buildTree();
   ensureMissions();
   applyOfflineProgress();
   initIsland();
@@ -2407,6 +3334,9 @@ function init() {
   $('daily-btn').addEventListener('click', claimDaily);
   $('golden').addEventListener('click', catchGolden);
   $('prestige-btn').addEventListener('click', prestige);
+  $('tree-reset').addEventListener('click', resetTree);
+  $('td-learn').addEventListener('click', () => learnNode(treeSel, 1));
+  $('td-max').addEventListener('click', () => learnNode(treeSel, Infinity));
   $('export-btn').addEventListener('click', exportSave);
   $('import-btn').addEventListener('click', importSave);
   $('reset-btn').addEventListener('click', hardReset);

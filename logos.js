@@ -465,6 +465,116 @@ const LOGOS = {
     return `<g>${out}${spin(c, 90)}</g>`;
   },
 
+  // Sechseck-Netz: Knoten an den Ecken, Speichen zur Mitte – oder flach mit Funkeln
+  hexnode(c) {
+    const { rand } = c;
+    const rot = rand() > 0.5 ? 0 : 30;
+    const corners = [0, 1, 2, 3, 4, 5].map(i => polar(70, rot + i * 60));
+    if (rand() > 0.55) {
+      return `${cutout(c, 'm', `<path d="${sparklePath(34)}" fill="#000"/>`)}<polygon points="${pts(corners)}" fill="${c.a}" stroke="${c.a}" stroke-width="18" stroke-linejoin="round" ${masked(c, 'm')}/>`;
+    }
+    const spokes = corners.filter((_, i) => i % 2 === 0).map(([x, y]) => `<line x1="0" y1="0" x2="${r1(x)}" y2="${r1(y)}"/>`).join('');
+    const dots = corners.map(([x, y], i) => `<circle cx="${r1(x)}" cy="${r1(y)}" r="${i % 2 ? 11 : 15}" fill="${i % 2 ? c.b : c.a}"/>`).join('');
+    return `<g><polygon points="${pts(corners)}" fill="none" stroke="${c.b}" stroke-width="8" stroke-linejoin="round" opacity="0.7"/><g stroke="${c.a}" stroke-width="9" stroke-linecap="round">${spokes}</g>${dots}<circle r="21" fill="${c.a}"/>${spin(c, 60)}</g>`;
+  },
+
+  // Isometrischer Würfel aus drei Flächen, auf Wunsch mit Fugen
+  cube(c) {
+    const { rand } = c;
+    const [top, rt, rb, bot, lb, lt] = [0, 60, 120, 180, 240, 300].map(a => polar(80, a));
+    const gap = rand() > 0.4;
+    const faces = [
+      [[[0, 0], lt, top, rt], c.a],
+      [[[0, 0], rt, rb, bot], c.b],
+      [[[0, 0], bot, lb, lt], c.c],
+    ];
+    return `<g stroke-linejoin="round" stroke-width="6">${faces.map(([p, paint]) => `<polygon points="${pts(gap ? shrink(p, 0.86) : p)}" fill="${paint}" stroke="${paint}"/>`).join('')}</g>`;
+  },
+
+  // Spirale aus einem Strich mit Punkt am Ende
+  spiral(c) {
+    const { rand } = c;
+    const turns = 2.1 + rand() * 0.7;
+    const sw = 12 + rand() * 4;
+    const rot = rand() * 360;
+    let d = '';
+    for (let i = 0; i <= 96; i++) {
+      const t = i / 96;
+      const [x, y] = polar(6 + t * 74, rot + t * turns * 360);
+      d += `${i ? 'L' : 'M'}${r1(x)} ${r1(y)}`;
+    }
+    const [ex, ey] = polar(80, rot + turns * 360);
+    return `<g><path d="${d}" fill="none" stroke="${c.a}" stroke-width="${r1(sw)}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${r1(ex)}" cy="${r1(ey)}" r="${r1(sw * 0.95)}" fill="${c.b}"/>${spin(c, 22)}</g>`;
+  },
+
+  // Pixel-Marke: 5×5 abgerundete Blöcke, Zeile für Zeile im Farbverlauf
+  pixel(c) {
+    const { rand } = c;
+    const shapes = [
+      ['x...x', 'xx.xx', 'x.x.x', 'x...x', 'x...x'],
+      ['..x..', '.xxx.', 'xx.xx', '.xxx.', '..x..'],
+      ['.xxx.', 'x...x', 'x.x.x', 'x...x', '.xxx.'],
+      ['xx...', 'xxx..', '.xxx.', '..xxx', '...xx'],
+      ['x.x.x', '.x.x.', 'x.x.x', '.x.x.', 'x.x.x'],
+      ['xxxxx', 'x...x', 'x.x.x', 'x...x', 'xxxxx'],
+    ];
+    const rows = shapes[Math.floor(rand() * shapes.length)];
+    const step = 36;
+    const size = 30;
+    let out = '';
+    rows.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch !== 'x') return;
+      const fill = `hsl(${r1((c.hue + y * 9) % 360)}, 88%, ${62 - y * 5}%)`;
+      out += `<rect x="${(x - 2) * step - size / 2}" y="${(y - 2) * step - size / 2}" width="${size}" height="${size}" rx="7" fill="${c.vortex ? c.a : fill}"/>`;
+    }));
+    return `<g>${out}</g>`;
+  },
+
+  // Signal: drei gestapelte Wellenlinien
+  signal(c) {
+    const { rand } = c;
+    const amp = 13 + rand() * 6;
+    const phase = rand() * Math.PI;
+    let out = '';
+    for (let i = 0; i < 3; i++) {
+      const y = (i - 1) * 44;
+      const w = 80 - Math.abs(i - 1) * 18;
+      let d = '';
+      for (let k = 0; k <= 40; k++) {
+        const t = k / 40;
+        d += `${k ? 'L' : 'M'}${r1(-w + 2 * w * t)} ${r1(y + Math.sin(t * Math.PI * 2 + phase + i * 0.9) * amp)}`;
+      }
+      out += `<path d="${d}" stroke="${i === 1 ? c.a : c.b}"/>`;
+    }
+    return `<g fill="none" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">${out}</g>`;
+  },
+
+  // Blüte aus überlappenden, durchscheinenden Kreisen
+  bloom(c) {
+    const { rand } = c;
+    const n = rand() > 0.5 ? 6 : 5;
+    const R = 38 + rand() * 6;
+    let out = '';
+    for (let i = 0; i < n; i++) {
+      const [x, y] = polar(86 - R, i * 360 / n);
+      out += `<circle cx="${r1(x)}" cy="${r1(y)}" r="${r1(R)}" fill="${i % 2 ? c.b : c.a}" fill-opacity="0.55"/>`;
+    }
+    return `<g>${out}${spin(c, 50)}</g>`;
+  },
+
+  // Gestapelte Winkel, nach oben oder nach rechts
+  chevron(c) {
+    const { rand } = c;
+    const n = rand() > 0.5 ? 3 : 2;
+    const dir = rand() > 0.5 ? 0 : 90;
+    let out = '';
+    for (let i = 0; i < n; i++) {
+      const y = (i - (n - 1) / 2) * 42;
+      out += `<path d="M-62 ${r1(y + 30)}L0 ${r1(y - 30)}L62 ${r1(y + 30)}" stroke="${i === 0 ? c.a : c.b}" opacity="${r1(1 - i * 0.22)}"/>`;
+    }
+    return `<g transform="rotate(${dir})" fill="none" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">${out}</g>`;
+  },
+
   // Der Wochenboss: sieben Bögen für sieben Tage, innen ein siebenstrahliger Stern
   boss(c) {
     let arcs = '';
@@ -482,10 +592,21 @@ function haloRing(c) {
   return `<g><path d="${d}" fill="none" stroke="${c.b}" stroke-width="5" stroke-linecap="round" opacity="0.85"/>${spin(c, 24, true)}</g>`;
 }
 
+// Dark Vortex: ein dunkler Wirbel hinter der Marke
+function vortexBackdrop(c) {
+  let arms = '';
+  for (let i = 0; i < 5; i++) {
+    const a = i * 72;
+    arms += `<path d="M0 0C${P(40, a - 70)} ${P(84, a - 40)} ${P(97, a + 12)}C${P(70, a + 6)} ${P(34, a + 14)} 0 0Z"/>`;
+  }
+  return `<g fill="url(#${c.id('v')})">${arms}${spin(c, 9, true)}</g><circle r="34" fill="#06010c" opacity="0.85"/>`;
+}
+
 let logoUid = 0;
 
 // family: Bauart aus LOGOS · hue: Grundfarbton · seed: Variation
 // opts.halo: Ring für Ultra-KIs · opts.still: ohne Animation · opts.letter: Buchstabe fürs Monogramm
+// opts.vortex: seltene Dark-Vortex-Variante (dunkel, mit Neon-Kante und Wirbel)
 function logoSvg(family, hue, seed, opts = {}) {
   const uid = ++logoUid;
   const id = name => `logo${uid}-${name}`;
@@ -502,7 +623,9 @@ function logoSvg(family, hue, seed, opts = {}) {
     rand,
     letter: opts.letter || 'K',
     still: Boolean(opts.still) || LOGO_REDUCED_MOTION,
+    vortex: Boolean(opts.vortex),
   };
+  if (c.vortex) return vortexSvg(family, c, h2);
   const defs = `<defs>
     <linearGradient id="${id('a')}" gradientUnits="userSpaceOnUse" x1="-80" y1="-90" x2="80" y2="90"><stop offset="0" stop-color="hsl(${r1(hue)}, 92%, 68%)"/><stop offset="0.55" stop-color="hsl(${r1(h2)}, 82%, 56%)"/><stop offset="1" stop-color="hsl(${r1(h3)}, 76%, 45%)"/></linearGradient>
     <linearGradient id="${id('b')}" gradientUnits="userSpaceOnUse" x1="80" y1="-90" x2="-80" y2="90"><stop offset="0" stop-color="hsl(${r1(h2)}, 90%, 70%)"/><stop offset="1" stop-color="hsl(${r1(h3)}, 80%, 48%)"/></linearGradient>
@@ -511,4 +634,18 @@ function logoSvg(family, hue, seed, opts = {}) {
   let body = (LOGOS[family] || LOGOS.sparkle)(c);
   if (opts.halo) body = `${haloRing(c)}<g transform="scale(0.8)">${body}</g>`;
   return `<svg viewBox="-100 -100 200 200" aria-hidden="true">${defs}${body}</svg>`;
+}
+
+function vortexSvg(family, c, h2) {
+  const { id, hue } = c;
+  const neon = `hsl(${r1(hue)}, 100%, 66%)`;
+  const defs = `<defs>
+    <linearGradient id="${id('a')}" gradientUnits="userSpaceOnUse" x1="-80" y1="-90" x2="80" y2="90"><stop offset="0" stop-color="hsl(${r1(hue)}, 70%, 42%)"/><stop offset="0.5" stop-color="hsl(${r1((h2 + 300) % 360)}, 60%, 17%)"/><stop offset="1" stop-color="#0b0216"/></linearGradient>
+    <linearGradient id="${id('b')}" gradientUnits="userSpaceOnUse" x1="80" y1="-90" x2="-80" y2="90"><stop offset="0" stop-color="hsl(285, 85%, 52%)"/><stop offset="1" stop-color="#12031f"/></linearGradient>
+    <radialGradient id="${id('c')}" gradientUnits="userSpaceOnUse" cx="-26" cy="-30" r="120"><stop offset="0" stop-color="hsl(${r1(hue)}, 90%, 62%)"/><stop offset="0.45" stop-color="hsl(278, 70%, 24%)"/><stop offset="1" stop-color="#05010a"/></radialGradient>
+    <radialGradient id="${id('v')}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="100"><stop offset="0.25" stop-color="#090114"/><stop offset="0.7" stop-color="hsl(272, 85%, 30%)"/><stop offset="1" stop-color="${neon}"/></radialGradient>
+    <filter id="${id('glow')}" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="${neon}" flood-opacity="0.95"/><feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="hsl(285, 100%, 62%)" flood-opacity="0.55"/></filter>
+  </defs>`;
+  const body = (LOGOS[family] || LOGOS.sparkle)(c);
+  return `<svg viewBox="-100 -100 200 200" aria-hidden="true">${defs}${vortexBackdrop(c)}<g transform="scale(0.8)" filter="url(#${id('glow')})">${body}</g></svg>`;
 }

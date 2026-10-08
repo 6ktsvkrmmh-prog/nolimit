@@ -2,7 +2,8 @@
 
 Ein Idle-Clicker für die Zeit, in der dein Claude-Limit aufgebraucht ist.
 Du tippst ausgedachte KIs wie Halluzino, Overfit oder Ratelimitus weg,
-sammelst Tokens, stellst Helfer ein und forderst jede Woche das Wochenlimit heraus.
+sammelst Tokens, stellst Helfer ein, kämpfst alle 500 Level gegen das Wochenlimit
+und komprimierst deinen Kontext für den nächsten, stärkeren Lauf.
 So lange, bis dein echtes Limit wieder frei ist.
 
 ## Spielen
@@ -29,16 +30,31 @@ Branch und Ordner `/ (root)` auswählen.
 - **Fähigkeiten wie bei Tap Titans:** Superschlag, Viraler Hype (Tokens ×N), Prompt-Sturm (Auto-Taps),
   Exploit-Modus (kritische Treffer), Hyperfokus (Tap-Schaden ×N) und Overclock (Helfer ×N). Freischalten
   ab einer Welle, mit Tokens bis Stufe 10 leveln, auslösen über die Kreise im Angriffsfeld oder die Tasten 1–6.
-- **64 ausgedachte KIs mit eigenen Logos:** 32 Logo-Bauarten im Stil echter KI-Marken, jede KI mit eigener
+  Abklingzeiten von 1,5 bis 3 Minuten; Upgrades und Baum verkürzen sie höchstens auf die Hälfte.
+- **94 ausgedachte KIs mit eigenen Logos:** 39 Logo-Bauarten im Stil echter KI-Marken, jede KI mit eigener
   Farbnuance. Manche haben Eigenschaften: gepanzert, flink, regenerierend, mit Ratenlimit („429“) oder sie forken sich.
+- **Neue Generation:** 30 weitere KIs tauchen nach und nach ab Welle 3 auf, jede mit ihrer festen Fähigkeit:
+  Schildphasen, Tarnung, falsche Schwachstellen, Teleport, Schrumpfen, Schweigepflicht (Fähigkeiten gesperrt),
+  Aushärten, Token-Fresser, Glitches, Flucht nach 15 s oder Schwarm (zerfällt in zwei Kopien).
+- **Dark Vortex:** Ganz selten (1 zu 400) erscheint eine KI als dunkle Vortex-Variante mit fünffacher Beute.
+  Besiegte Varianten bekommen in der Sammlung eine Markierung und zeigen sich beim Drüberfahren oder Antippen.
 - **Limit-Leiste als Lebensanzeige:** „5-Stunden-Limit · 37 % verbraucht · noch 3 Std. 9 Min.“ – reine Optik.
 - **Wellen & Ultra-Launch:** 10 KIs pro Welle, jede etwas stärker; die zehnte ist eine Ultra-KI, die in
   30 Sekunden fallen muss – sonst geht es zurück zu KI 1 der Welle.
-- **Wochenboss:** Jeder Sieg füllt die Wochenleiste. Bei 100 % erscheint „Das Wochenlimit“.
+- **Das Wochenlimit alle 500 Level:** Am Ende jeder 50. Welle wartet statt der Ultra-KI ein harter Boss mit
+  60 Sekunden Zeit, der mit jeder Stufe (II, III, …) stärker wird. Er feuert rote Angriffskreise mit
+  schrumpfendem Ring. Abgewehrt kosten sie ihn 1 % Limit, verpasst gibt es einen Negativ-Effekt: Helfer
+  pausiert, Taps gesperrt, Schwachstelle verdeckt, Combo weg, Tokens weg, Boss heilt sich oder längere
+  Abklingzeiten. Verloren? Dann wird die Welle gefarmt, bis du ihn erneut herausforderst.
+- **Prestige mit Fähigkeitenbaum:** Ab Welle 10 den Kontext komprimieren. Tokens, Helfer, Upgrades,
+  Fähigkeiten-Stufen und Welle starten neu, dafür gibt es Erkenntnisse und eine neue Kontext-Version
+  (jede dauerhaft +3 %). Der Baum hat 5 Äste (Rechenkraft, Automatisierung, Ökonomie, Präzision, Kontrolle)
+  mit je 10 Fähigkeiten, insgesamt über 1.400 Stufen. Neue Reihen öffnen sich ab v2, v4, v8 … bis v200.
+  Zurücksetzen ist kostenlos.
 - **Helfer & Upgrades mit KI-Thema:** Prompt-Bibliothek, Feintuner, Vektor-Datenbank, Agenten-Schwarm,
   Tensor-Farm, Trainingscluster, Neuromorpher Chip, Singularität – je fünf Upgrades wie „Chain of Thought“,
   „LoRA-Adapter“ oder „Ereignishorizont“.
-- **Ziele:** drei Aufträge mit Belohnung, die KI-Sammlung und 30 Erfolge.
+- **Ziele:** drei Aufträge mit Belohnung, die KI-Sammlung und 39 Erfolge.
 - **Limit-Blase für deine Claude-Limits:** neben „No Limit“, öffnet sich bei Hover (oder Antippen).
   Restzeit des 5-Stunden-Limits und Uhrzeit des Wochen-Resets per Ziehen einstellen, Tage wischen,
   Feinjustieren mit Mausrad oder Trackpad. Beide Countdowns laufen live; ist ein Limit zurück, meldet sie sich.

@@ -90,8 +90,11 @@
         <button id="enemy" class="enemy" aria-label="KI angreifen">
           <span class="glyph-float"><span id="glyph" class="glyph"></span></span>
           <span id="weakspot" class="weakspot" aria-hidden="true"></span>
+          <span class="weakspot fake" aria-hidden="true" hidden></span>
+          <span class="weakspot fake" aria-hidden="true" hidden></span>
         </button>
         <div id="popups" class="popups"></div>
+        <div id="attacks" class="attacks"></div>
         <div class="arena-left">
           <div id="combo" class="combo" hidden>
             <span id="combo-count" class="combo-count"></span>
@@ -104,10 +107,11 @@
             <span id="chain-mult" class="combo-mult"></span>
             <span class="combo-bar"><span id="chain-fill" class="combo-fill"></span></span>
           </div>
+          <div id="debuffs" class="debuffs"></div>
         </div>
         <div class="arena-corner">
-          <div id="launch" class="launch" hidden title="Ultra-KIs müssen fallen, bevor sie live gehen – sonst geht es zurück zu KI 1 dieser Welle.">
-            <span data-icon="rocket"></span><span id="launch-text"></span>
+          <div id="launch" class="launch" hidden>
+            <span id="launch-icon" data-icon="rocket"></span><span id="launch-text"></span>
           </div>
           <button id="daily-btn" class="pill-btn accent daily-btn" hidden><span data-icon="gift"></span>Tagesbonus</button>
         </div>
@@ -141,25 +145,26 @@
 
       <div class="week">
         <div class="meter-head">
-          <span>Wochenboss</span>
-          <span id="week-text" class="meter-used"></span>
+          <span id="track-title">Nächster Boss: Das Wochenlimit</span>
+          <span id="track-text" class="meter-used"></span>
         </div>
-        <div id="week-bar" class="week-bar" title="Fortschritt zum Boss dieser Woche"></div>
+        <div id="track-bar" class="week-bar" title="Alle 500 Level wartet das Wochenlimit"></div>
         <div class="week-foot">
-          <span id="week-reset"></span>
-          <button id="boss-btn" class="pill-btn accent" hidden>Boss herausfordern</button>
+          <span id="track-foot"></span>
+          <button id="boss-btn" class="pill-btn accent" hidden>Erneut herausfordern</button>
           <button id="retreat-btn" class="pill-btn" hidden>Rückzug</button>
         </div>
       </div>
     </section>
 
     <section class="card side">
-      <div class="segmented" role="tablist" aria-label="Bereiche">
-        <button role="tab" data-tab="helpers" aria-selected="true">Helfer</button>
-        <button role="tab" data-tab="skills" aria-selected="false">Fähigkeiten</button>
-        <button role="tab" data-tab="upgrades" aria-selected="false">Upgrades<span id="upgrade-badge" class="badge" hidden></span></button>
-        <button role="tab" data-tab="missions" aria-selected="false">Ziele</button>
-        <button role="tab" data-tab="more" aria-selected="false">Mehr</button>
+      <div class="segmented tabs" role="tablist" aria-label="Bereiche">
+        <button role="tab" data-tab="helpers" aria-selected="true"><span class="tab-icon" data-icon="agents"></span><span class="tab-label">Helfer</span></button>
+        <button role="tab" data-tab="skills" aria-selected="false"><span class="tab-icon" data-icon="storm"></span><span class="tab-label"><span class="tab-long">Fähigkeiten</span><span class="tab-short">Skills</span></span></button>
+        <button role="tab" data-tab="upgrades" aria-selected="false"><span class="tab-icon" data-icon="layers"></span><span class="tab-label"><span class="tab-long">Upgrades</span><span class="tab-short">Boosts</span></span><span id="upgrade-badge" class="badge" hidden></span></button>
+        <button role="tab" data-tab="prestige" aria-selected="false"><span class="tab-icon" data-icon="compress"></span><span class="tab-label">Prestige</span><span id="prestige-badge" class="badge" hidden></span></button>
+        <button role="tab" data-tab="missions" aria-selected="false"><span class="tab-icon" data-icon="checklist"></span><span class="tab-label">Ziele</span></button>
+        <button role="tab" data-tab="more" aria-selected="false"><span class="tab-icon" data-icon="more"></span><span class="tab-label">Mehr</span></button>
       </div>
 
       <div id="tab-helpers" class="tab" role="tabpanel">
@@ -186,6 +191,52 @@
         <p id="upgrades-empty" class="empty">Noch keine Upgrades verfügbar. Weiter tippen!</p>
       </div>
 
+      <div id="tab-prestige" class="tab" role="tabpanel" hidden>
+        <div class="group version-card">
+          <div class="version-top">
+            <div class="version-col">
+              <span class="muted small">Kontext-Version</span>
+              <strong id="version" class="version-num">v1</strong>
+            </div>
+            <div class="version-col version-right">
+              <span class="muted small">Erkenntnisse</span>
+              <span class="version-insights"><span data-icon="bulb"></span><strong id="insights">0</strong></span>
+            </div>
+          </div>
+          <p class="muted small">
+            Komprimieren setzt Tokens, Helfer, Upgrades, Fähigkeiten-Stufen und Welle zurück. Dafür gibt es Erkenntnisse
+            für den Fähigkeitenbaum, und jede Version macht dauerhaft 3 % stärker.
+          </p>
+          <div class="kv"><span>Dauerbonus aller Versionen</span><strong id="version-bonus">+0 %</strong></div>
+          <div class="kv"><span>Höchste Welle dieses Laufs</span><strong id="run-wave">1</strong></div>
+          <div class="kv"><span>Erkenntnisse beim Komprimieren</span><strong id="insights-pending">+0</strong></div>
+          <button id="prestige-btn" class="btn btn-wide btn-accent" disabled>Kontext komprimieren</button>
+          <p id="prestige-hint" class="muted small"></p>
+        </div>
+
+        <div class="tab-head">
+          <span class="muted small">Fähigkeitenbaum · 5 Äste mit je 10 Fähigkeiten</span>
+          <button id="tree-reset" class="link-btn">Zurücksetzen</button>
+        </div>
+        <div id="tree" class="tree"></div>
+        <div id="tree-detail" class="tree-detail">
+          <span id="td-tile" class="tile"></span>
+          <div class="td-main">
+            <span class="row-title"><span id="td-name"></span><span id="td-level" class="row-count"></span></span>
+            <span id="td-now" class="row-sub"></span>
+            <span id="td-next" class="row-sub td-next"></span>
+            <span id="td-req" class="row-sub td-req" hidden></span>
+          </div>
+          <div class="td-actions">
+            <button id="td-learn" class="price-btn"></button>
+            <div class="td-sub">
+              <span id="td-balance" class="td-balance"></span>
+              <button id="td-max" class="link-btn">Max</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="tab-missions" class="tab" role="tabpanel" hidden>
         <div class="tab-head">
           <span class="muted small">Aufträge · erledigte werden sofort ersetzt</span>
@@ -206,18 +257,6 @@
 
       <div id="tab-more" class="tab" role="tabpanel" hidden>
         <div class="group">
-          <h2>Kontext komprimieren</h2>
-          <p class="muted small">
-            Setzt Tokens, Helfer, Upgrades und Welle zurück. Dafür gibt es Erkenntnisse,
-            jede dauerhaft +10 % Schaden.
-          </p>
-          <div class="kv"><span>Erkenntnisse</span><strong id="insights">0</strong></div>
-          <div class="kv"><span>Beim Komprimieren</span><strong id="insights-pending">+0</strong></div>
-          <button id="prestige-btn" class="btn btn-wide" disabled>Kontext komprimieren</button>
-          <p id="prestige-hint" class="muted small"></p>
-        </div>
-
-        <div class="group">
           <h2>Statistik</h2>
           <dl id="stats" class="stats"></dl>
         </div>
@@ -230,10 +269,12 @@
             <li>Treffer auf den Punkt in Folge bilden eine Krit-Kette: Jedes Glied gibt +25 % Krit-Schaden. Aber das Zeitfenster schrumpft, der Punkt wird kleiner und wandert immer schneller. Ein Fehltipp lässt die Kette reißen.</li>
             <li>Die Lebensleiste ist ein 5-Stunden-Limit: Dein Schaden verbraucht es, bei 100 % ist die KI besiegt.</li>
             <li>Die zehnte KI jeder Welle ist eine Ultra-Version mit Launch-Countdown. Schaffst du sie nicht rechtzeitig, geht es zurück zu KI 1.</li>
-            <li>Manche KIs haben Eigenschaften: gepanzert, flink, regenerierend, mit Ratenlimit oder sie forken sich.</li>
+            <li>Manche KIs haben Eigenschaften: gepanzert, flink, regenerierend, mit Ratenlimit, forkend – und die neue Generation bringt noch mehr mit: Schilde, Tarnung, falsche Schwachstellen, Teleport, Schweigepflicht und andere.</li>
             <li>Fähigkeiten wie Superschlag oder Viraler Hype schaltest du im Tab „Fähigkeiten“ frei und levelst sie bis Stufe 10. Auslösen über die Kreise im Angriffsfeld, am Desktop auch mit den Tasten 1 bis 6.</li>
-            <li>Aufträge bringen Bonus-Tokens. Jeder Sieg füllt die Wochenleiste für den Boss „Das Wochenlimit“.</li>
-            <li>In der schwarzen Limit-Blase neben „No Limit“ stellst du deine echten Claude-Limits ein.</li>
+            <li>Alle 500 Level, am Ende jeder 50. Welle, wartet das Wochenlimit: ein harter Boss mit 60 Sekunden Zeit. Er feuert rote Angriffskreise – tippe sie an, bevor sich ihr Ring schließt, sonst gibt es einen Negativ-Effekt.</li>
+            <li>Ab Welle 10 kannst du im Tab „Prestige“ den Kontext komprimieren. Das setzt den Lauf zurück und bringt Erkenntnisse für den Fähigkeitenbaum. Neue Reihen öffnen sich mit höheren Kontext-Versionen.</li>
+            <li>Aufträge bringen Bonus-Tokens, alle 10 Wellen gibt es eine Meilenstein-Belohnung.</li>
+            <li>In der Limit-Blase neben „No Limit“ stellst du deine echten Claude-Limits ein.</li>
             <li>Helfer kämpfen bis zu 12 Stunden weiter, während du weg bist.</li>
           </ul>
         </div>
