@@ -92,10 +92,18 @@
           <span id="weakspot" class="weakspot" aria-hidden="true"></span>
         </button>
         <div id="popups" class="popups"></div>
-        <div id="combo" class="combo" hidden>
-          <span id="combo-count" class="combo-count"></span>
-          <span id="combo-mult" class="combo-mult"></span>
-          <span class="combo-bar"><span id="combo-fill" class="combo-fill"></span></span>
+        <div class="arena-left">
+          <div id="combo" class="combo" hidden>
+            <span id="combo-count" class="combo-count"></span>
+            <span id="combo-mult" class="combo-mult"></span>
+            <span class="combo-bar"><span id="combo-fill" class="combo-fill"></span></span>
+          </div>
+          <div id="chain" class="chain" hidden>
+            <span data-icon="chain"></span>
+            <span id="chain-count" class="combo-count"></span>
+            <span id="chain-mult" class="combo-mult"></span>
+            <span class="combo-bar"><span id="chain-fill" class="combo-fill"></span></span>
+          </div>
         </div>
         <div class="arena-corner">
           <div id="launch" class="launch" hidden title="Ultra-KIs müssen fallen, bevor sie live gehen – sonst geht es zurück zu KI 1 dieser Welle.">
@@ -219,6 +227,7 @@
           <ul class="howto">
             <li>Tippe auf die KI. Triffst du den leuchtenden Punkt, ist es ein kritischer Treffer.</li>
             <li>Schnell hintereinander tippen baut eine Combo auf, die deinen Schaden erhöht.</li>
+            <li>Treffer auf den Punkt in Folge bilden eine Krit-Kette: Jedes Glied gibt +25 % Krit-Schaden. Aber das Zeitfenster schrumpft, der Punkt wird kleiner und wandert immer schneller. Ein Fehltipp lässt die Kette reißen.</li>
             <li>Die Lebensleiste ist ein 5-Stunden-Limit: Dein Schaden verbraucht es, bei 100 % ist die KI besiegt.</li>
             <li>Die zehnte KI jeder Welle ist eine Ultra-Version mit Launch-Countdown. Schaffst du sie nicht rechtzeitig, geht es zurück zu KI 1.</li>
             <li>Manche KIs haben Eigenschaften: gepanzert, flink, regenerierend, mit Ratenlimit oder sie forken sich.</li>

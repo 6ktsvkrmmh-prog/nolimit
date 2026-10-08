@@ -43,6 +43,17 @@ const COMBO_WINDOW_MS = 1500;   // so lange darf zwischen zwei Taps liegen
 const COMBO_STEP = 0.01;        // +1 % Tap-Schaden pro Combo-Stufe
 const COMBO_CAP = 100;
 const CRIT_MULT = 4;
+// Krit-Kette: Treffer auf die Schwachstelle in Folge. Jedes Glied macht Krits stärker,
+// aber das Zeitfenster schrumpft, der Punkt wird kleiner und wandert immer schneller.
+const CHAIN_BONUS = 0.25;          // +25 % Krit-Schaden pro Glied
+const CHAIN_WINDOW_MS = 2600;      // Zeit bis zum nächsten Treffer am Anfang …
+const CHAIN_WINDOW_STEP = 120;     // … minus so viel pro Glied …
+const CHAIN_WINDOW_MIN = 700;      // … aber nie weniger als das
+const CHAIN_SHRINK = 0.035;        // Schwachstelle pro Glied 3,5 % kleiner …
+const CHAIN_MIN_SIZE = 0.45;       // … bis auf 45 %
+const CHAIN_DRIFT_FROM = 3;        // ab dieser Kette wandert der Punkt …
+const CHAIN_DRIFT_STEP = 0.06;     // … pro Glied schneller (Anteil der KI-Größe pro Sekunde)
+const CHAIN_DRIFT_MAX = 0.6;
 const WEAKSPOT_RADIUS = 0.13;   // Trefferradius als Anteil der KI-Größe
 const WEAKSPOT_MOVE_MS = 2600;
 const ULTRA_TIME_MS = 30_000;   // Launch-Countdown der Ultra-KI
@@ -256,6 +267,10 @@ const UPGRADES = [
     icon: 'flame', colors: ['#d9363e', '#ff9f0a'], cost: 3e6, unlocked: s => s.maxCombo >= 90, apply: m => { m.comboCap = 200; } },
   { id: 'skill-1', name: 'Schnelleres Inferencing', flavor: 'Weniger warten, mehr wirken.', effect: 'Abklingzeiten −30 %',
     icon: 'gauge', colors: ['#30d158', '#0a84ff'], cost: 1e6, unlocked: s => s.skillUses >= 5, apply: m => { m.cooldown *= 0.7; } },
+  { id: 'chain-1', name: 'Kettenreaktion', flavor: 'Ein Treffer zieht den nächsten nach sich.', effect: 'Krit-Kette hält 0,4 s länger',
+    icon: 'chain', colors: ['#ff375f', '#d97757'], cost: 75_000, unlocked: s => s.bestChain >= 6, apply: m => { m.chainWindow += 400; } },
+  { id: 'chain-2', name: 'Präzisionsoptik', flavor: 'Auch kleine Ziele bleiben groß genug.', effect: 'Schwachstelle schrumpft halb so schnell',
+    icon: 'target', colors: ['#5e5ce6', '#ff375f'], cost: 5e7, unlocked: s => s.bestChain >= 15, apply: m => { m.chainShrink *= 0.5; } },
   { id: 'ultra-1', name: 'Launch-Verschiebung', flavor: 'Die Presse wartet. Noch.', effect: 'Ultra-Countdown +15 s',
     icon: 'rocket', colors: ['#0a84ff', '#bf5af2'], cost: 50_000, unlocked: s => s.ultraFails >= 1, apply: m => { m.ultraTime += 15_000; } },
 ];
@@ -303,6 +318,7 @@ const MISSION_TYPES = [
   { type: 'kills', icon: 'target', range: [15, 40], text: n => `Besiege ${n} KIs` },
   { type: 'crits', icon: 'crosshair', range: [8, 25], text: n => `Lande ${n} kritische Treffer` },
   { type: 'combo', icon: 'flame', range: [20, 70], text: n => `Erreiche eine Combo von ${n}` },
+  { type: 'chain', icon: 'chain', range: [4, 10], text: n => `Schaffe eine Krit-Kette von ${n}` },
   { type: 'taps', icon: 'cursor', range: [100, 300], text: n => `Tippe ${n}-mal auf KIs` },
   { type: 'ultras', icon: 'rocket', range: [1, 3], text: n => (n > 1 ? `Besiege ${n} Ultra-KIs vor dem Launch` : 'Besiege eine Ultra-KI vor dem Launch') },
   { type: 'traits', icon: 'shield', range: [3, 8], text: n => `Besiege ${n} KIs mit Eigenschaft`, when: s => s.highestWave >= TRAIT_MIN_WAVE },
@@ -334,6 +350,8 @@ const ACHIEVEMENTS = [
   { id: 'dex-all', name: 'Vollständige Sammlung', desc: `Entdecke alle ${MODELS.length} KIs.`, check: s => s.discovered.size >= MODELS.length },
   { id: 'crit-1', name: 'Kritischer Moment', desc: 'Lande deinen ersten kritischen Treffer.', check: s => s.crits >= 1 },
   { id: 'combo-100', name: 'Combo-Meister', desc: 'Erreiche eine Combo von 100.', check: s => s.maxCombo >= 100 },
+  { id: 'chain-10', name: 'Scharfschütze', desc: 'Schaffe eine Krit-Kette von 10.', check: s => s.bestChain >= 10 },
+  { id: 'chain-25', name: 'Unaufhaltsam', desc: 'Schaffe eine Krit-Kette von 25.', check: s => s.bestChain >= 25 },
   { id: 'ultra-10', name: 'Launch verhindert', desc: 'Besiege 10 Ultra-KIs vor ihrem Launch.', check: s => s.ultraWins >= 10 },
   { id: 'skills-25', name: 'Werkzeugkasten', desc: 'Setze 25-mal eine Fähigkeit ein.', check: s => s.skillUses >= 25 },
   { id: 'missions-10', name: 'Auftragslage gut', desc: 'Erledige 10 Aufträge.', check: s => s.missionsDone >= 10 },
@@ -393,6 +411,7 @@ const ICON_PATHS = {
   heal: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v5M9.5 12h5"/>',
   stop: '<path d="M8.3 3h7.4L21 8.3v7.4L15.7 21H8.3L3 15.7V8.3z"/><path d="M8 12h8"/>',
   fork: '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v1.5a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 11.5V17"/>',
+  chain: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   megaphone: '<path d="M4 10v4a1 1 0 0 0 1 1h2.5l6 4.5v-15l-6 4.5H5a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a7.5 7.5 0 0 1 0 11"/>',
   storm: '<path d="M7 15.5a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 17 8a3.8 3.8 0 0 1 .5 7.5"/><path d="M12.5 11.5l-2.5 4h3l-2 4.5"/>',
   bomb: '<circle cx="10.5" cy="13.5" r="6.5"/><path d="M15.2 8.8l2.3-2.3"/><path d="M19.5 2.5v2.5M21.5 4.5H19"/>',
@@ -547,6 +566,7 @@ function freshState(now = Date.now()) {
     lastDaily: '',
     crits: 0,
     maxCombo: 0,
+    bestChain: 0,
     ultraWins: 0,
     ultraFails: 0,
     skillUses: 0,
@@ -648,6 +668,8 @@ function computeMods() {
     weakSize: 1,
     comboWindow: COMBO_WINDOW_MS,
     comboCap: COMBO_CAP,
+    chainWindow: 0,
+    chainShrink: 1,
     cooldown: 1,
     ultraTime: ULTRA_TIME_MS,
   };
@@ -917,21 +939,75 @@ const tapLog = [];
 let throttledUntil = 0;
 let lastThrottlePopup = 0;
 let autoTaps = 0;
-let weak = { x: 0.5, y: 0.5, movedAt: 0 };
+let weak = { x: 0.5, y: 0.5, vx: 1, vy: 0, movedAt: 0 };
 
 function comboMult() {
   return 1 + Math.min(combo.count, mods.comboCap) * COMBO_STEP;
 }
 
+const chain = { count: 0, lastAt: 0 };
+
+function chainWindow() {
+  return Math.max(CHAIN_WINDOW_MIN, CHAIN_WINDOW_MS - CHAIN_WINDOW_STEP * chain.count) + mods.chainWindow;
+}
+
+// Krit-Multiplikator für den nächsten Treffer auf die Schwachstelle
+function chainCritMult(count = chain.count) {
+  return CRIT_MULT * mods.crit * (1 + CHAIN_BONUS * count);
+}
+
 function weakRadius() {
-  return WEAKSPOT_RADIUS * mods.weakSize;
+  const shrink = Math.max(CHAIN_MIN_SIZE, 1 - CHAIN_SHRINK * mods.chainShrink * chain.count);
+  return WEAKSPOT_RADIUS * mods.weakSize * shrink;
+}
+
+function breakChain(now) {
+  if (chain.count >= 3) {
+    popup(`Kette gerissen · ${chain.count}`, 'blocked', 50, 22);
+    SFX.chainBreak();
+  }
+  chain.count = 0;
+  moveWeakSpot(now);
+}
+
+// Ab einer längeren Kette wandert die Schwachstelle und prallt am Rand ab.
+function driftWeakSpot(dtMs) {
+  const speed = chain.count >= CHAIN_DRIFT_FROM ? Math.min(CHAIN_DRIFT_MAX, CHAIN_DRIFT_STEP * (chain.count - CHAIN_DRIFT_FROM + 1)) : 0;
+  const el = $('weakspot');
+  el.classList.toggle('drift', speed > 0);
+  if (!speed) return;
+  weak.x += weak.vx * speed * dtMs / 1000;
+  weak.y += weak.vy * speed * dtMs / 1000;
+  const dx = weak.x - 0.5;
+  const dy = weak.y - 0.5;
+  const d = Math.hypot(dx, dy);
+  if (d > 0.3) {
+    const nx = dx / d;
+    const ny = dy / d;
+    const dot = weak.vx * nx + weak.vy * ny;
+    weak.vx -= 2 * dot * nx;
+    weak.vy -= 2 * dot * ny;
+    weak.x = 0.5 + nx * 0.3;
+    weak.y = 0.5 + ny * 0.3;
+  }
+  el.style.left = `${weak.x * 100}%`;
+  el.style.top = `${weak.y * 100}%`;
 }
 
 // Die Schwachstelle springt an eine neue Stelle innerhalb der KI.
 function moveWeakSpot(now) {
-  const a = Math.random() * Math.PI * 2;
-  const r = Math.sqrt(Math.random()) * 0.26;
-  weak = { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r, movedAt: now };
+  // Neue Stelle mit etwas Abstand zur alten, damit jeder Treffer neu gezielt werden muss.
+  let x;
+  let y;
+  for (let tries = 0; tries < 8; tries++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.sqrt(Math.random()) * 0.27;
+    x = 0.5 + Math.cos(a) * r;
+    y = 0.5 + Math.sin(a) * r;
+    if (Math.hypot(x - weak.x, y - weak.y) > 0.16) break;
+  }
+  const dir = Math.random() * Math.PI * 2;
+  weak = { x, y, vx: Math.cos(dir), vy: Math.sin(dir), movedAt: now };
   const el = $('weakspot');
   el.style.left = `${weak.x * 100}%`;
   el.style.top = `${weak.y * 100}%`;
@@ -974,15 +1050,28 @@ function doTap({ clientX = null, clientY = null, auto = false } = {}) {
     missionProgress('taps');
   }
 
-  let crit = false;
+  let onSpot = false;
   if (clientX !== null) {
     const r = $('enemy').getBoundingClientRect();
-    crit = Math.hypot((clientX - r.left) / r.width - weak.x, (clientY - r.top) / r.height - weak.y) <= weakRadius();
+    onSpot = Math.hypot((clientX - r.left) / r.width - weak.x, (clientY - r.top) / r.height - weak.y) <= weakRadius();
   }
   // Exploit-Modus: jeder Tap kann kritisch treffen, auch ohne die Schwachstelle
-  if (!crit && skillActive('crit', now)) crit = Math.random() * 100 < skillPower('crit');
+  const lucky = !onSpot && skillActive('crit', now) && Math.random() * 100 < skillPower('crit');
+  const crit = onSpot || lucky;
+  // Krit-Kette: nur gezielte Treffer verlängern sie, ein Fehltipp lässt sie reißen.
+  // Zufalls-Krits halten sie; Taps ohne Zielpunkt (Tastatur, Prompt-Sturm) zählen nicht.
+  let critMult = CRIT_MULT * mods.crit;
+  if (onSpot) {
+    critMult = chainCritMult();
+    chain.count++;
+    chain.lastAt = now;
+    state.bestChain = Math.max(state.bestChain, chain.count);
+    missionProgress('chain', chain.count, true);
+  } else if (clientX !== null && !lucky && chain.count > 0) {
+    breakChain(now);
+  }
   const focus = skillActive('focus', now) ? skillPower('focus') : 1;
-  const dmg = clickValue(now) * comboMult() * focus * (crit ? CRIT_MULT * mods.crit : 1) * traitFactor('tap');
+  const dmg = clickValue(now) * comboMult() * focus * (crit ? critMult : 1) * traitFactor('tap');
 
   // Schadenszahl dort, wo getippt wurde (per Tastatur oder Sturm: rund um die Mitte)
   const arena = $('arena').getBoundingClientRect();
@@ -991,10 +1080,10 @@ function doTap({ clientX = null, clientY = null, auto = false } = {}) {
   if (crit) {
     state.crits++;
     missionProgress('crits');
-    popup(`Kritisch −${fmt(dmg, 1)}`, 'crit', x, y);
+    popup(onSpot && chain.count >= 2 ? `Kette ${chain.count} · −${fmt(dmg, 1)}` : `Kritisch −${fmt(dmg, 1)}`, onSpot && chain.count >= 5 ? 'crit huge' : 'crit', x, y);
     restartAnimation($('arena'), 'shake');
-    SFX.crit();
-    moveWeakSpot(now);
+    SFX.crit(onSpot ? chain.count : 0);
+    if (onSpot) moveWeakSpot(now);
   } else if (!auto || autoTaps % 3 === 0) {
     popup(`−${fmt(dmg, 1)}`, auto ? 'auto' : 'dmg', x, y);
     SFX.tap(combo.count);
@@ -1159,10 +1248,12 @@ function blip({ freq = 440, to = freq, dur = 0.08, type = 'sine', gain = 0.04, d
 
 const SFX = {
   tap: n => blip({ freq: 520 + Math.min(n, 60) * 8, to: 360, dur: 0.06, gain: 0.025 }),
-  crit: () => {
-    blip({ freq: 880, to: 1320, dur: 0.12, type: 'triangle', gain: 0.045 });
-    blip({ freq: 1320, to: 1760, dur: 0.14, type: 'triangle', gain: 0.035, delay: 0.06 });
+  crit: (n = 0) => {
+    const up = 1 + Math.min(n, 25) * 0.04;
+    blip({ freq: 880 * up, to: 1320 * up, dur: 0.12, type: 'triangle', gain: 0.045 });
+    blip({ freq: 1320 * up, to: 1760 * up, dur: 0.14, type: 'triangle', gain: 0.035, delay: 0.06 });
   },
+  chainBreak: () => blip({ freq: 660, to: 220, dur: 0.35, type: 'triangle', gain: 0.035 }),
   kill: () => blip({ freq: 320, to: 90, dur: 0.2, type: 'triangle', gain: 0.05 }),
   limited: () => blip({ freq: 190, to: 140, dur: 0.22, type: 'square', gain: 0.02 }),
   skill: () => blip({ freq: 240, to: 980, dur: 0.3, type: 'sawtooth', gain: 0.02 }),
@@ -1874,7 +1965,7 @@ function renderEnemy(now) {
   $('meter-left').textContent = `noch ${fmtSpan((1 - used) * t.meter.span)}`;
   $('hp-text').textContent = `${fmt(Math.ceil(t.unit.hp))} / ${fmt(t.maxHp)} HP`;
   $('retreat-btn').hidden = !t.isBoss;
-  $('tap-hint').hidden = state.clicks >= 3;
+  $('tap-hint').hidden = state.clicks >= 3 || chain.count >= 2;
   const throttled = t.trait === 'ratelimit' && now < throttledUntil;
   $('throttle').hidden = !throttled;
   $('enemy').classList.toggle('throttled', throttled);
@@ -1882,6 +1973,19 @@ function renderEnemy(now) {
 
 // Combo-Anzeige und Launch-Countdown in der Arena
 function renderArenaHud(now) {
+  const chainActive = chain.count >= 2;
+  $('chain').hidden = !chainActive;
+  const left = chain.count > 0 ? clamp01(1 - (now - chain.lastAt) / chainWindow()) : 0;
+  if (chainActive) {
+    $('chain-count').textContent = `Krit-Kette ${chain.count}`;
+    $('chain-mult').textContent = `nächster Krit ×${fmt(chainCritMult(), 1)}`;
+    $('chain-fill').style.width = `${left * 100}%`;
+  }
+  const spot = $('weakspot');
+  spot.style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
+  spot.style.setProperty('--chain-left', String(left));
+  spot.classList.toggle('chained', chain.count > 0);
+  spot.classList.toggle('urgent', chain.count > 0 && left < 0.35);
   const comboActive = combo.count >= 3 && now - combo.lastAt <= mods.comboWindow;
   $('combo').hidden = !comboActive;
   if (comboActive) {
@@ -2013,6 +2117,7 @@ function renderStats(now) {
     ['Taps', fmt(state.clicks)],
     ['Kritische Treffer', fmt(state.crits)],
     ['Beste Combo', fmt(state.maxCombo)],
+    ['Beste Krit-Kette', fmt(state.bestChain)],
     ['Ultra-KIs vor dem Launch', fmt(state.ultraWins)],
     ['Aufträge erledigt', fmt(state.missionsDone)],
     ['Fähigkeiten eingesetzt', fmt(state.skillUses)],
@@ -2235,7 +2340,9 @@ function tick() {
   } else {
     stormAcc = 0;
   }
-  if (now - weak.movedAt > WEAKSPOT_MOVE_MS) moveWeakSpot(now);
+  if (chain.count > 0 && now - chain.lastAt > chainWindow()) breakChain(now);
+  else if (chain.count === 0 && now - weak.movedAt > WEAKSPOT_MOVE_MS) moveWeakSpot(now);
+  driftWeakSpot(Math.min(Math.max(elapsed, 0), 250));
   checkUltra(now);
   if (now - lastAutoPopup >= 1000 && baseDps() > 0) {
     lastAutoPopup = now;
