@@ -38,6 +38,24 @@ const WEEKLY_GOAL = 500;
 const WEEKLY_STAGES = 5;
 const BOSS_HP_MULT = 100;
 
+// Kampf-Würze
+const COMBO_WINDOW_MS = 1500;   // so lange darf zwischen zwei Taps liegen
+const COMBO_STEP = 0.01;        // +1 % Tap-Schaden pro Combo-Stufe
+const COMBO_CAP = 100;
+const CRIT_MULT = 4;
+const WEAKSPOT_RADIUS = 0.13;   // Trefferradius als Anteil der KI-Größe
+const WEAKSPOT_MOVE_MS = 2600;
+const ULTRA_TIME_MS = 30_000;   // Launch-Countdown der Ultra-KI
+const TRAIT_MIN_WAVE = 3;
+const TRAIT_CHANCE = 0.25;
+const REGEN_PER_S = 0.03;
+const RATE_LIMIT_TAPS = 8;      // mehr Taps pro Sekunde lösen „429“ aus
+const RATE_LIMIT_MS = 1500;
+const FORK_HP = 0.4;
+const SKILL_MAX_LEVEL = 10;
+const SKILL_COST_GROWTH = 2.6;
+const MISSION_COUNT = 3;
+
 // Die Lebensleiste ist als Claude-Limit gestaltet: Die HP werden als „verbleibende Zeit“
 // dargestellt. Mit echter Zeit hat das nichts zu tun, es ist nur die Optik.
 const ENEMY_METER = { label: '5-Stunden-Limit', span: SESSION_MS };
@@ -116,76 +134,79 @@ const BOSS = { name: 'Das Wochenlimit', family: 'boss', hue: 354, quip: 'Sieben 
 // Fester Seed pro Modell für die Sammlung, damit jedes Modell dort immer gleich aussieht.
 const catalogSeed = index => 1000 + index * 7919;
 
+// Interne IDs bleiben gleich, damit alte Spielstände passen.
 const GENERATORS = [
-  { id: 'duck', name: 'Gummiente', icon: 'bubble', color: '#f2a900', desc: 'Hört geduldig zu, während du laut debuggst.', baseCost: 15, baseRate: 0.1 },
-  { id: 'intern', name: 'Praktikant', icon: 'person', color: '#5856d6', desc: 'Tippt Prompts ab. Meistens richtig.', baseCost: 100, baseRate: 1 },
-  { id: 'coffee', name: 'Kaffeemaschine', icon: 'cup', color: '#a2845e', desc: 'Wandelt Bohnen in Schaden um.', baseCost: 1100, baseRate: 8 },
-  { id: 'so', name: 'Stack-Overflow-Archiv', icon: 'layers', color: '#ff9500', desc: '„Marked as duplicate“, aber wirksam.', baseCost: 12_000, baseRate: 47 },
-  { id: 'gpu', name: 'GPU-Cluster', icon: 'chip', color: '#30b158', desc: 'Heizt nebenbei das ganze Büro.', baseCost: 130_000, baseRate: 260 },
-  { id: 'dc', name: 'Rechenzentrum', icon: 'server', color: '#0a84ff', desc: 'Kühlung inklusive. Meistens.', baseCost: 1.4e6, baseRate: 1400 },
-  { id: 'quantum', name: 'Quantencomputer', icon: 'atom', color: '#af52de', desc: 'Trifft, bevor du überhaupt tippst.', baseCost: 2e7, baseRate: 7800 },
-  { id: 'dyson', name: 'Dyson-Sphäre', icon: 'sun', color: '#d97757', desc: 'Die Sonne als Rechenzentrum. Endlich kein Limit.', baseCost: 3.3e8, baseRate: 44_000 },
+  { id: 'duck', name: 'Prompt-Bibliothek', icon: 'prompt', colors: ['#ff9f0a', '#ff375f'], desc: 'Bewährte Prompts für jede Lage.', baseCost: 15, baseRate: 0.1 },
+  { id: 'intern', name: 'Feintuner', icon: 'sliders', colors: ['#5e5ce6', '#bf5af2'], desc: 'Trainiert kleine Modelle auf deinen Stil.', baseCost: 100, baseRate: 1 },
+  { id: 'coffee', name: 'Vektor-Datenbank', icon: 'database', colors: ['#32ade6', '#0a6cff'], desc: 'Findet in Millisekunden das Passende.', baseCost: 1100, baseRate: 8 },
+  { id: 'so', name: 'Agenten-Schwarm', icon: 'agents', colors: ['#30d158', '#0fa3a3'], desc: 'Zehn Agenten, ein gemeinsames Ziel.', baseCost: 12_000, baseRate: 47 },
+  { id: 'gpu', name: 'Tensor-Farm', icon: 'gpu', colors: ['#ff6b3d', '#d9363e'], desc: 'Reihenweise Grafikkarten unter Volllast.', baseCost: 130_000, baseRate: 260 },
+  { id: 'dc', name: 'Trainingscluster', icon: 'trend', colors: ['#0a84ff', '#5e5ce6'], desc: 'Trainiert über Nacht ein neues Modell.', baseCost: 1.4e6, baseRate: 1400 },
+  { id: 'quantum', name: 'Neuromorpher Chip', icon: 'neuro', colors: ['#bf5af2', '#ff375f'], desc: 'Denkt wie ein Gehirn, rechnet wie ein Supercomputer.', baseCost: 2e7, baseRate: 7800 },
+  { id: 'dyson', name: 'Singularität', icon: 'singularity', colors: ['#d97757', '#6e3bd8'], desc: 'Ab hier gibt es keine Limits mehr.', baseCost: 3.3e8, baseRate: 44_000 },
 ];
+
+const tileBg = ([a, b]) => `linear-gradient(135deg, ${a}, ${b})`;
 
 // Jeder Helfer bekommt fünf eigene Upgrades, die seinen Schaden jeweils verdoppeln.
 const TIER_OWNED = [1, 5, 25, 50, 100];
 const TIER_COST = [10, 50, 500, 5000, 50_000];
 const TIER_NAMES = {
   duck: [
-    ['Zuhör-Training', 'Nickt jetzt verständnisvoll.'],
-    ['Pair-Debugging', 'Zwei Enten, halb so viele Bugs.'],
-    ['Quietsch-Alarm', 'Quietscht, sobald ein Bug auftaucht.'],
-    ['Senior-Ente', 'Hat mehr Code-Reviews gesehen als du.'],
-    ['Goldene Ente', 'Löst den Bug, bevor du ihn erklärst.'],
+    ['Few-Shot-Beispiele', 'Drei Beispiele sagen mehr als tausend Worte.'],
+    ['Chain of Thought', 'Erst denken, dann zuschlagen.'],
+    ['System-Prompt', 'Klare Regeln, klare Treffer.'],
+    ['Prompt-Kaskade', 'Ein Prompt schreibt den nächsten.'],
+    ['Der perfekte Prompt', 'Gibt es nicht. Bis jetzt.'],
   ],
   intern: [
-    ['Kaffee-Flatrate', 'Motivation, frisch gebrüht.'],
-    ['Zweiter Monitor', 'Doppelt so viele Tabs.'],
-    ['Festanstellung', 'Bleibt jetzt auch nach 18 Uhr.'],
-    ['Eigenes Büro', 'Mit Tür. Und Pflanze.'],
-    ['Beförderung zum CTO', 'Ging schneller als gedacht.'],
+    ['LoRA-Adapter', 'Kleine Gewichte, große Wirkung.'],
+    ['Sauberes Datenset', 'Weniger Müll rein, weniger Müll raus.'],
+    ['RLHF', 'Menschliches Feedback, maschinelle Härte.'],
+    ['Destillation', 'Großes Wissen, kleines Modell.'],
+    ['Selbstverbesserung', 'Trainiert sich jetzt selbst.'],
   ],
   coffee: [
-    ['Doppelter Espresso', 'Zwei Shots, null Zweifel.'],
-    ['Siebträger', 'Handwerk statt Kapseln.'],
-    ['Bohnen-Abo', 'Nie wieder leer.'],
-    ['Cold Brew', 'Langsam extrahiert, schnell getrunken.'],
-    ['Koffein-Singularität', 'Schlaf ist jetzt optional.'],
+    ['Bessere Embeddings', 'Ähnliches liegt jetzt wirklich nah beieinander.'],
+    ['Re-Ranking', 'Das Beste nach oben.'],
+    ['Hybrid-Suche', 'Stichwort und Bedeutung in einem.'],
+    ['Kontext-Cache', 'Was einmal gefunden wurde, bleibt griffbereit.'],
+    ['Allwissender Index', 'Findet Antworten auf Fragen, die noch keiner gestellt hat.'],
   ],
   so: [
-    ['Akzeptierte Antworten', 'Nur noch der grüne Haken.'],
-    ['Upvote-Filter', 'Die Weisheit der Masse.'],
-    ['Offline-Spiegel', 'Funktioniert auch im Zug.'],
-    ['Duplikat-Radar', 'Findet die Frage, die schon jemand gestellt hat.'],
-    ['Der eine Thread von 2011', 'Genau dein Problem. Gelöst.'],
+    ['Werkzeugzugriff', 'Agenten dürfen jetzt Tools benutzen.'],
+    ['Gemeinsames Gedächtnis', 'Keiner vergisst mehr etwas.'],
+    ['Planer-Agent', 'Einer denkt, alle handeln.'],
+    ['Parallele Ausführung', 'Hundert Aufgaben gleichzeitig.'],
+    ['Autonomie-Stufe 5', 'Fragt nicht mehr nach. Erledigt einfach.'],
   ],
   gpu: [
-    ['Wärmeleitpaste', 'Endlich richtig aufgetragen.'],
-    ['Wasserkühlung', 'Leise, kalt, schnell.'],
-    ['Mixed Precision', 'Halbe Bits, doppeltes Tempo.'],
+    ['Flüssigkühlung', 'Kühl bleiben unter Volllast.'],
+    ['Gemischte Präzision', 'Halbe Bits, doppeltes Tempo.'],
     ['Tensor-Kerne', 'Matrizen zum Frühstück.'],
-    ['Exaflop-Ära', 'Rechnet schneller, als du denkst.'],
+    ['Schnelle Interconnects', 'Die Karten reden schneller miteinander.'],
+    ['Exaflop-Klasse', 'Rechnet schneller, als du denkst.'],
   ],
   dc: [
-    ['Redundante Netzteile', 'Fällt nie wieder aus. Fast nie.'],
-    ['Glasfaser-Backbone', 'Licht ist das neue Kupfer.'],
-    ['Ökostrom', 'Gutes Gewissen, volle Leistung.'],
-    ['Tiefseekühlung', 'Das Meer als Lüfter.'],
-    ['Orbitales Rechenzentrum', 'Gekühlt vom Weltall.'],
+    ['Checkpoints', 'Kein Absturz wirft mehr alles zurück.'],
+    ['Daten-Pipeline', 'Nie wieder hungrige GPUs.'],
+    ['Skalierungsgesetze', 'Mehr Rechenleistung, vorhersehbar besser.'],
+    ['Nachtschicht-Training', 'Das neue Modell ist morgen früh fertig.'],
+    ['Frontier-Lauf', 'Das größte Training aller Zeiten.'],
   ],
   quantum: [
-    ['Mehr Qubits', 'Mehr ist mehr. Gleichzeitig.'],
-    ['Fehlerkorrektur', 'Weniger Rauschen, mehr Treffer.'],
-    ['Verschränkung', 'Trifft zwei KIs auf einmal.'],
-    ['Absoluter Nullpunkt', 'Kälter als dein Kaffee nach dem Meeting.'],
-    ['Quantenüberlegenheit', 'Diesmal wirklich.'],
+    ['Spiking-Neuronen', 'Feuert nur, wenn es zählt.'],
+    ['Synaptische Plastizität', 'Lernt bei jedem Treffer dazu.'],
+    ['Analoge Rechenkerne', 'Rechnet mit Strömen statt Bits.'],
+    ['Photonischer Bus', 'Daten mit Lichtgeschwindigkeit.'],
+    ['Künstlicher Kortex', 'Ein Gehirn aus Silizium.'],
   ],
   dyson: [
-    ['Erstes Segment', 'Ein kleiner Schritt für die Sonne.'],
-    ['Solarsegel', 'Fängt jedes Photon.'],
-    ['Schwarm-Montage', 'Baut sich selbst weiter.'],
-    ['Vollverkleidung', 'Die Sonne ist jetzt ein Rechenzentrum.'],
-    ['Kardaschow-Stufe II', 'Kein Limit. Nirgends.'],
+    ['Rekursive Verbesserung', 'Jede Version baut die nächste.'],
+    ['Unbegrenzter Kontext', 'Vergisst nie wieder etwas.'],
+    ['Ereignishorizont', 'Kein Limit entkommt.'],
+    ['Allgemeine Intelligenz', 'Kann alles. Will nur Pause.'],
+    ['Post-Limit-Ära', 'Dein Kontingent ist jetzt unendlich.'],
   ],
 };
 const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
@@ -197,32 +218,96 @@ const UPGRADES = [
     flavor,
     effect: `${g.name} ×2`,
     icon: g.icon,
-    color: g.color,
+    colors: g.colors,
     badge: ROMAN[i],
     cost: g.baseCost * TIER_COST[i],
     unlocked: s => s.gens[g.id] >= TIER_OWNED[i],
     apply: m => { m.gen[g.id] *= 2; },
   }))),
-  { id: 'click-1', name: 'Klackernde Tastatur', flavor: 'Mechanische Switches. Doppelter Schaden, doppelter Lärm.', effect: 'Taps ×2',
-    icon: 'keyboard', color: '#ff9f0a', cost: 100, unlocked: s => s.clicks >= 10, apply: m => { m.click *= 2; } },
-  { id: 'click-2', name: 'Vim-Muskelgedächtnis', flavor: 'Du findest :wq im Schlaf.', effect: 'Taps ×2',
-    icon: 'terminal', color: '#30b158', cost: 1000, unlocked: s => s.clicks >= 50, apply: m => { m.click *= 2; } },
-  { id: 'click-3', name: 'Prompt-Zauberei', flavor: 'Die richtigen Worte treffen härter.', effect: '+1 % Schaden/s pro Tap',
-    icon: 'wand', color: '#bf5af2', cost: 50_000, unlocked: s => s.clicks >= 200, apply: m => { m.clickDps += 0.01; } },
-  { id: 'click-4', name: 'Tiefer Flow', flavor: 'Kein Slack, keine Meetings. Nur du und die KI.', effect: '+2 % Schaden/s pro Tap',
-    icon: 'wave', color: '#0a84ff', cost: 5e6, unlocked: s => s.clicks >= 1000, apply: m => { m.clickDps += 0.02; } },
-  { id: 'click-5', name: '10x-Energie', flavor: 'Legenden sagen, es gibt dich wirklich.', effect: 'Taps ×10',
-    icon: 'rocket', color: '#ff375f', cost: 5e8, unlocked: s => s.clicks >= 2500, apply: m => { m.click *= 10; } },
-  { id: 'global-1', name: 'Strenges Code-Review', flavor: 'Kein Merge ohne zwei Approvals.', effect: 'Alle Helfer +50 %',
-    icon: 'search', color: '#5e5ce6', cost: 2e5, unlocked: s => s.runEarned >= 5e4, apply: m => { m.global *= 1.5; } },
-  { id: 'global-2', name: 'Testabdeckung 100 %', flavor: 'Endlich grün. Alles grün.', effect: 'Alle Helfer +50 %',
-    icon: 'checklist', color: '#34c759', cost: 2e7, unlocked: s => s.runEarned >= 5e6, apply: m => { m.global *= 1.5; } },
-  { id: 'global-3', name: 'Pipeline auf Autopilot', flavor: 'Deployt freitags um 17 Uhr. Furchtlos.', effect: 'Alle Helfer ×2',
-    icon: 'refresh', color: '#0a84ff', cost: 2e9, unlocked: s => s.runEarned >= 5e8, apply: m => { m.global *= 2; } },
+  { id: 'click-1', name: 'Präzise Prompts', flavor: 'Weniger Worte, mehr Wirkung.', effect: 'Taps ×2',
+    icon: 'target', colors: ['#ff9f0a', '#ff6b3d'], cost: 100, unlocked: s => s.clicks >= 10, apply: m => { m.click *= 2; } },
+  { id: 'click-2', name: 'Senden mit ⌘↩', flavor: 'Jede Millisekunde zählt.', effect: 'Taps ×2',
+    icon: 'cursor', colors: ['#30d158', '#0fa3a3'], cost: 1000, unlocked: s => s.clicks >= 50, apply: m => { m.click *= 2; } },
+  { id: 'click-3', name: 'Prompt-Verstärker', flavor: 'Jeder Tap ruft die Helfer zu Hilfe.', effect: '+1 % Schaden/s pro Tap',
+    icon: 'wand', colors: ['#bf5af2', '#5e5ce6'], cost: 50_000, unlocked: s => s.clicks >= 200, apply: m => { m.clickDps += 0.01; } },
+  { id: 'click-4', name: 'Gedankenlesen', flavor: 'Die KI ahnt, was du willst.', effect: '+2 % Schaden/s pro Tap',
+    icon: 'brain', colors: ['#ff375f', '#bf5af2'], cost: 5e6, unlocked: s => s.clicks >= 1000, apply: m => { m.clickDps += 0.02; } },
+  { id: 'click-5', name: 'Superprompt', flavor: 'Ein Tap, ein Erdbeben.', effect: 'Taps ×10',
+    icon: 'bolt', colors: ['#ff9f0a', '#d9363e'], cost: 5e8, unlocked: s => s.clicks >= 2500, apply: m => { m.click *= 10; } },
+  { id: 'global-1', name: 'Evaluations-Suite', flavor: 'Messen, was wirklich zählt.', effect: 'Alle Helfer +50 %',
+    icon: 'gauge', colors: ['#0a84ff', '#32ade6'], cost: 2e5, unlocked: s => s.runEarned >= 5e4, apply: m => { m.global *= 1.5; } },
+  { id: 'global-2', name: 'Red-Teaming', flavor: 'Wer angreift, wird besser.', effect: 'Alle Helfer +50 %',
+    icon: 'shield', colors: ['#d9363e', '#ff375f'], cost: 2e7, unlocked: s => s.runEarned >= 5e6, apply: m => { m.global *= 1.5; } },
+  { id: 'global-3', name: 'Modell-Routing', flavor: 'Jede Aufgabe ans beste Modell.', effect: 'Alle Helfer ×2',
+    icon: 'route', colors: ['#5e5ce6', '#0a84ff'], cost: 2e9, unlocked: s => s.runEarned >= 5e8, apply: m => { m.global *= 2; } },
   { id: 'global-4', name: 'Millionen-Token-Kontext', flavor: 'Vergisst nie wieder, worum es ging.', effect: 'Alle Helfer ×2',
-    icon: 'window', color: '#d97757', cost: 2e11, unlocked: s => s.runEarned >= 5e10, apply: m => { m.global *= 2; } },
-  { id: 'golden-1', name: 'Duschgedanken', flavor: 'Die besten Ideen kommen unter der Dusche.', effect: 'Geistesblitze doppelt so oft',
-    icon: 'bulb', color: '#f2a900', cost: 77_777, unlocked: s => s.goldenClicks >= 3, apply: m => { m.goldenFreq *= 2; } },
+    icon: 'window', colors: ['#d97757', '#ff9f0a'], cost: 2e11, unlocked: s => s.runEarned >= 5e10, apply: m => { m.global *= 2; } },
+  { id: 'golden-1', name: 'Spontane Emergenz', flavor: 'Plötzlich kann das Modell Dinge, die keiner geplant hat.', effect: 'Geistesblitze doppelt so oft',
+    icon: 'sparkle', colors: ['#ffcc00', '#ff9f0a'], cost: 77_777, unlocked: s => s.goldenClicks >= 3, apply: m => { m.goldenFreq *= 2; } },
+  { id: 'crit-1', name: 'Schwachstellen-Scanner', flavor: 'Findet jede Lücke im Modell.', effect: 'Kritische Treffer ×1,5',
+    icon: 'crosshair', colors: ['#ff375f', '#ff9f0a'], cost: 5000, unlocked: s => s.crits >= 15, apply: m => { m.crit *= 1.5; } },
+  { id: 'crit-2', name: 'Adversarial Prompts', flavor: 'Genau die Eingabe, die das Modell verwirrt.', effect: 'Schwachstelle 40 % größer',
+    icon: 'target', colors: ['#bf5af2', '#ff375f'], cost: 2e5, unlocked: s => s.crits >= 100, apply: m => { m.weakSize *= 1.4; } },
+  { id: 'crit-3', name: 'Zero-Day-Exploit', flavor: 'Diese Lücke kennt noch niemand.', effect: 'Kritische Treffer ×2',
+    icon: 'crosshair', colors: ['#d9363e', '#6e3bd8'], cost: 5e7, unlocked: s => s.crits >= 500, apply: m => { m.crit *= 2; } },
+  { id: 'combo-1', name: 'Arbeitsgedächtnis', flavor: 'Hält den Faden ein bisschen länger.', effect: 'Combo hält 1 s länger',
+    icon: 'flame', colors: ['#ff9f0a', '#ff375f'], cost: 20_000, unlocked: s => s.maxCombo >= 30, apply: m => { m.comboWindow += 1000; } },
+  { id: 'combo-2', name: 'Langer Atem', flavor: 'Hundert Taps sind erst der Anfang.', effect: 'Combo bis ×3',
+    icon: 'flame', colors: ['#d9363e', '#ff9f0a'], cost: 3e6, unlocked: s => s.maxCombo >= 90, apply: m => { m.comboCap = 200; } },
+  { id: 'skill-1', name: 'Schnelleres Inferencing', flavor: 'Weniger warten, mehr wirken.', effect: 'Abklingzeiten −30 %',
+    icon: 'gauge', colors: ['#30d158', '#0a84ff'], cost: 1e6, unlocked: s => s.skillUses >= 5, apply: m => { m.cooldown *= 0.7; } },
+  { id: 'ultra-1', name: 'Launch-Verschiebung', flavor: 'Die Presse wartet. Noch.', effect: 'Ultra-Countdown +15 s',
+    icon: 'rocket', colors: ['#0a84ff', '#bf5af2'], cost: 50_000, unlocked: s => s.ultraFails >= 1, apply: m => { m.ultraTime += 15_000; } },
+];
+
+// Eigenschaften, die manche KIs mitbringen
+const TRAITS = {
+  armored: { name: 'Gepanzert', icon: 'shield', desc: 'Helfer machen nur halben Schaden, Taps 50 % mehr.' },
+  evasive: { name: 'Flink', icon: 'wind', desc: 'Weicht aus und wandert durch die Arena.' },
+  regen: { name: 'Regeneriert', icon: 'heal', desc: 'Stellt 3 % ihres Limits pro Sekunde wieder her.' },
+  ratelimit: { name: 'Ratenlimit', icon: 'stop', desc: `Mehr als ${RATE_LIMIT_TAPS} Taps pro Sekunde? 429 – kurz gesperrt.` },
+  fork: { name: 'Forkt sich', icon: 'fork', desc: 'Spaltet beim Sieg eine Kopie mit 40 % Limit ab.' },
+};
+const TRAIT_KEYS = Object.keys(TRAITS);
+// Manche Modelle haben ihre Eigenschaft immer.
+const SIGNATURE_TRAITS = {
+  Ratelimitus: 'ratelimit', Latenzia: 'ratelimit', Zensora: 'armored', Alignatron: 'armored',
+  Rekursor: 'fork', 'Endlos-Loop': 'fork', Schleimbot: 'regen', Blobby: 'regen', Hypezilla: 'evasive', Turbolix: 'evasive',
+};
+
+// Fähigkeiten wie bei Tap Titans: ab einer Welle freischalten, dann mit Tokens bis Stufe 10 leveln.
+// power(L) ist die Stärke auf Stufe L, duration/cooldown in Millisekunden.
+// Die IDs „bomb“, „storm“ und „overclock“ stammen aus älteren Spielständen und bleiben.
+const SKILLS = [
+  { id: 'bomb', name: 'Superschlag', short: 'Schlag', icon: 'bolt', colors: ['#ff9f0a', '#d9363e'], wave: 3, cost: 300,
+    power: L => 10 + 10 * L, cooldown: L => Math.max(40, 62 - 2 * L) * 1000, duration: () => 0,
+    describe: L => `Sofort ${10 + 10 * L} s Helfer-Schaden plus ${20 + 10 * L} Taps` },
+  { id: 'midas', name: 'Viraler Hype', short: 'Hype', icon: 'megaphone', colors: ['#ffcc00', '#ff9f0a'], wave: 6, cost: 2500,
+    power: L => 1.5 + 0.5 * L, cooldown: () => 90_000, duration: L => (14 + L) * 1000,
+    describe: L => `Tokens ×${fmt(1.5 + 0.5 * L, 1)} für ${14 + L} s` },
+  { id: 'storm', name: 'Prompt-Sturm', short: 'Sturm', icon: 'storm', colors: ['#32ade6', '#5e5ce6'], wave: 9, cost: 15_000,
+    power: L => 8 + 2 * L, cooldown: () => 60_000, duration: L => (6 + L) * 1000,
+    describe: L => `${8 + 2 * L} automatische Taps pro Sekunde für ${6 + L} s` },
+  { id: 'crit', name: 'Exploit-Modus', short: 'Exploit', icon: 'crosshair', colors: ['#ff375f', '#bf5af2'], wave: 13, cost: 120_000,
+    power: L => 25 + 5 * L, cooldown: () => 75_000, duration: L => (8 + L) * 1000,
+    describe: L => `${25 + 5 * L} % Chance auf kritische Treffer für ${8 + L} s` },
+  { id: 'focus', name: 'Hyperfokus', short: 'Fokus', icon: 'flame', colors: ['#ff6b3d', '#ff375f'], wave: 17, cost: 1e6,
+    power: L => 1.5 + 0.5 * L, cooldown: () => 70_000, duration: L => (12 + L) * 1000,
+    describe: L => `Tap-Schaden ×${fmt(1.5 + 0.5 * L, 1)} für ${12 + L} s` },
+  { id: 'overclock', name: 'Overclock', short: 'Overclock', icon: 'gauge', colors: ['#30d158', '#0a84ff'], wave: 22, cost: 8e6,
+    power: L => 1.5 + 0.5 * L, cooldown: () => 100_000, duration: L => (12 + L) * 1000,
+    describe: L => `Alle Helfer ×${fmt(1.5 + 0.5 * L, 1)} für ${12 + L} s` },
+];
+
+const MISSION_TYPES = [
+  { type: 'kills', icon: 'target', range: [15, 40], text: n => `Besiege ${n} KIs` },
+  { type: 'crits', icon: 'crosshair', range: [8, 25], text: n => `Lande ${n} kritische Treffer` },
+  { type: 'combo', icon: 'flame', range: [20, 70], text: n => `Erreiche eine Combo von ${n}` },
+  { type: 'taps', icon: 'cursor', range: [100, 300], text: n => `Tippe ${n}-mal auf KIs` },
+  { type: 'ultras', icon: 'rocket', range: [1, 3], text: n => (n > 1 ? `Besiege ${n} Ultra-KIs vor dem Launch` : 'Besiege eine Ultra-KI vor dem Launch') },
+  { type: 'traits', icon: 'shield', range: [3, 8], text: n => `Besiege ${n} KIs mit Eigenschaft`, when: s => s.highestWave >= TRAIT_MIN_WAVE },
+  { type: 'skills', icon: 'storm', range: [2, 5], text: n => `Setze ${n}× eine Fähigkeit ein`, when: s => SKILLS.some(k => s.skills[k.id].level > 0) },
+  { type: 'discover', icon: 'sparkle', range: [2, 4], text: n => `Entdecke ${n} neue KIs`, when: s => s.discovered.size < MODELS.length - 4 },
 ];
 
 const ACHIEVEMENTS = [
@@ -247,6 +332,12 @@ const ACHIEVEMENTS = [
   { id: 'prestige', name: 'Frischer Kontext', desc: 'Komprimiere deinen Kontext.', check: s => s.prestiges >= 1 },
   { id: 'dex-16', name: 'Sammler', desc: 'Entdecke 16 verschiedene KIs.', check: s => s.discovered.size >= 16 },
   { id: 'dex-all', name: 'Vollständige Sammlung', desc: `Entdecke alle ${MODELS.length} KIs.`, check: s => s.discovered.size >= MODELS.length },
+  { id: 'crit-1', name: 'Kritischer Moment', desc: 'Lande deinen ersten kritischen Treffer.', check: s => s.crits >= 1 },
+  { id: 'combo-100', name: 'Combo-Meister', desc: 'Erreiche eine Combo von 100.', check: s => s.maxCombo >= 100 },
+  { id: 'ultra-10', name: 'Launch verhindert', desc: 'Besiege 10 Ultra-KIs vor ihrem Launch.', check: s => s.ultraWins >= 10 },
+  { id: 'skills-25', name: 'Werkzeugkasten', desc: 'Setze 25-mal eine Fähigkeit ein.', check: s => s.skillUses >= 25 },
+  { id: 'missions-10', name: 'Auftragslage gut', desc: 'Erledige 10 Aufträge.', check: s => s.missionsDone >= 10 },
+  { id: 'rate-limited', name: 'Too Many Requests', desc: 'Lass dich von einem Ratenlimit ausbremsen.', check: s => s.rateLimited >= 1 },
   { id: 'limit', name: 'Limit überstanden', desc: 'Warte im Spiel einen deiner Claude-Limit-Resets ab.', check: s => s.limitsSurvived >= 1 },
 ];
 
@@ -282,6 +373,29 @@ const ICON_PATHS = {
   checklist: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M8 12.2l2.8 2.8 5.2-6"/>',
   refresh: '<path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M18 3.5V7h-3.5M6 20.5V17h3.5"/>',
   window: '<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9h18M7 13h10M7 16h6"/>',
+  prompt: '<rect x="4" y="3.5" width="12.5" height="17" rx="2.5"/><path d="M7.5 9h5.5M7.5 12.5h5.5M7.5 16h3"/><path d="M19.5 2.5l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z"/>',
+  sliders: '<path d="M6 4v16M12 4v16M18 4v16"/><circle cx="6" cy="14.5" r="2.3" fill="currentColor"/><circle cx="12" cy="8.5" r="2.3" fill="currentColor"/><circle cx="18" cy="15.5" r="2.3" fill="currentColor"/>',
+  database: '<ellipse cx="12" cy="6" rx="7" ry="2.8"/><path d="M5 6v12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8"/>',
+  agents: '<circle cx="12" cy="5.5" r="2.6"/><circle cx="5.5" cy="17.5" r="2.6"/><circle cx="18.5" cy="17.5" r="2.6"/><path d="M10.7 7.8l-3.9 7.4M13.3 7.8l3.9 7.4M8.1 17.5h7.8"/>',
+  gpu: '<rect x="2.5" y="6" width="19" height="11" rx="2.5"/><circle cx="9" cy="11.5" r="3"/><path d="M15 9.5h3M15 13.5h3M6 17v2.5M10 17v2.5"/>',
+  trend: '<path d="M4 19.5h16"/><path d="M5 15.5l4-4.5 3.5 3L19 7"/><path d="M15 7h4v4"/>',
+  neuro: '<rect x="6" y="6" width="12" height="12" rx="3.5"/><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3"/><path d="M10 14c0-2.4 4-1.6 4-4"/>',
+  singularity: '<circle cx="12" cy="12" r="3.4" fill="currentColor"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(-24 12 12)"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/>',
+  cursor: '<path d="M5 4l5.5 15 2.2-6.3L19 10.5z"/><path d="M18.5 15l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/>',
+  brain: '<path d="M12 5.5C12 4 10.8 3 9.5 3S7 4 7 5.3C5.3 5.6 4 7 4 8.8c0 .9.3 1.7.9 2.3a3.6 3.6 0 0 0-.9 2.4c0 1.9 1.4 3.5 3.3 3.7.3 2.1 2 3.8 3.7 3.8M12 5.5C12 4 13.2 3 14.5 3S17 4 17 5.3c1.7.3 3 1.7 3 3.5 0 .9-.3 1.7-.9 2.3.6.6.9 1.5.9 2.4 0 1.9-1.4 3.5-3.3 3.7-.3 2.1-2 3.8-3.7 3.8M12 5.5V21"/>',
+  gauge: '<path d="M4 16.5a8 8 0 1 1 16 0"/><path d="M12 16.5l4.2-5.2"/><circle cx="12" cy="16.5" r="1.5" fill="currentColor"/>',
+  shield: '<path d="M12 3l7 3v5.5c0 4.3-3 7.8-7 9.5-4-1.7-7-5.2-7-9.5V6z"/>',
+  route: '<circle cx="5" cy="12" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M7.2 12h3c2.2 0 2.6-6 6.6-6M10.2 12c2.2 0 2.6 6 6.6 6"/>',
+  crosshair: '<circle cx="12" cy="12" r="7.5"/><path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5"/>',
+  flame: '<path d="M12 21c3.9 0 6.5-2.7 6.5-6.3 0-3.4-2.4-5.6-3.6-8.7-.9 2-2 3-3.4 3.6.3-2.6-.5-5.2-2.6-6.6.1 3.2-1.6 4.8-3 6.6a7.5 7.5 0 0 0-.4 5.1C6 18.3 8.1 21 12 21z"/>',
+  wind: '<path d="M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
+  heal: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M12 9.5v5M9.5 12h5"/>',
+  stop: '<path d="M8.3 3h7.4L21 8.3v7.4L15.7 21H8.3L3 15.7V8.3z"/><path d="M8 12h8"/>',
+  fork: '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v1.5a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 11.5V17"/>',
+  megaphone: '<path d="M4 10v4a1 1 0 0 0 1 1h2.5l6 4.5v-15l-6 4.5H5a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a7.5 7.5 0 0 1 0 11"/>',
+  storm: '<path d="M7 15.5a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 17 8a3.8 3.8 0 0 1 .5 7.5"/><path d="M12.5 11.5l-2.5 4h3l-2 4.5"/>',
+  bomb: '<circle cx="10.5" cy="13.5" r="6.5"/><path d="M15.2 8.8l2.3-2.3"/><path d="M19.5 2.5v2.5M21.5 4.5H19"/>',
   bulb: '<path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z"/>',
 };
 
@@ -382,11 +496,25 @@ function enemyMaxHp(wave, index) {
   return ENEMY_BASE_HP * ENEMY_HP_GROWTH ** n * (index === WAVE_SIZE - 1 ? ULTRA_HP_MULT : 1);
 }
 
+// Spielzeit für neue Gegner; in der Offline-Simulation die simulierte Zeit.
+let clock = Date.now();
+
+function rollTrait(kind, wave, index) {
+  if (wave < TRAIT_MIN_WAVE) return null;
+  const signature = SIGNATURE_TRAITS[MODELS[kind].name];
+  if (signature) return signature;
+  if (index === WAVE_SIZE - 1 || Math.random() < TRAIT_CHANCE) return TRAIT_KEYS[Math.floor(Math.random() * TRAIT_KEYS.length)];
+  return null;
+}
+
 function newEnemy(wave, index) {
+  const kind = Math.floor(Math.random() * MODELS.length);
   return {
-    kind: Math.floor(Math.random() * MODELS.length),
+    kind,
     seed: Math.floor(Math.random() * 2 ** 31),
     hp: enemyMaxHp(wave, index),
+    trait: rollTrait(kind, wave, index),
+    spawnedAt: clock,
   };
 }
 
@@ -417,6 +545,17 @@ function freshState(now = Date.now()) {
     bossWins: 0,
     week: { id: weekId(now, null), kills: 0, claimed: 0, bossDefeated: false },
     lastDaily: '',
+    crits: 0,
+    maxCombo: 0,
+    ultraWins: 0,
+    ultraFails: 0,
+    skillUses: 0,
+    traitKills: 0,
+    rateLimited: 0,
+    missionsDone: 0,
+    missions: [],
+    skills: Object.fromEntries(SKILLS.map(k => [k.id, { level: 0, readyAt: 0, activeUntil: 0 }])),
+    sound: true,
     limitReset: null,   // dein nächster 5-Stunden-Reset bei Claude
     weeklyReset: null,  // dein nächster Wochenlimit-Reset bei Claude
     limitsSurvived: 0,
@@ -436,14 +575,29 @@ function fromSaveData(data) {
     gens: { ...base.gens, ...data.gens },
     week: { ...base.week, ...data.week },
     enemy: enemyOk
-      ? { ...data.enemy, kind: data.enemy.kind % MODELS.length, seed: data.enemy.seed ?? Math.floor(Math.random() * 2 ** 31) }
+      ? {
+        ...data.enemy,
+        kind: data.enemy.kind % MODELS.length,
+        seed: data.enemy.seed ?? Math.floor(Math.random() * 2 ** 31),
+        trait: TRAITS[data.enemy.trait] ? data.enemy.trait : null,
+        spawnedAt: Date.now(),
+      }
       : base.enemy,
+    skills: Object.fromEntries(SKILLS.map(k => {
+      const saved = (data.skills || {})[k.id] || {};
+      // Ältere Spielstände kannten keine Stufen: Was schon nutzbar war, startet auf Stufe 1.
+      const level = Number.isInteger(saved.level) ? saved.level : (saved.readyAt !== undefined && (data.highestWave || 1) >= k.wave ? 1 : 0);
+      return [k.id, { ...base.skills[k.id], ...saved, level: Math.min(SKILL_MAX_LEVEL, Math.max(0, level)) }];
+    })),
+    missions: Array.isArray(data.missions)
+      ? data.missions.filter(m => m && MISSION_TYPES.some(t => t.type === m.type) && m.target > 0)
+      : [],
     upgrades: new Set(data.upgrades || []),
     achievements: new Set((data.achievements || []).filter(id => ACHIEVEMENTS.some(a => a.id === id))),
     discovered: new Set((data.discovered || []).filter(i => Number.isInteger(i) && i >= 0 && i < MODELS.length)),
   };
   // Ältere Spielstände hatten eine andere HP-Kurve.
-  s.enemy.hp = Math.min(s.enemy.hp, enemyMaxHp(s.wave, s.enemyIndex));
+  s.enemy.hp = Math.min(s.enemy.hp, s.enemy.maxHp ?? enemyMaxHp(s.wave, s.enemyIndex));
   return s;
 }
 
@@ -484,7 +638,19 @@ let quiet = false;
 // ---------- Werte ----------
 
 function computeMods() {
-  const m = { gen: Object.fromEntries(GENERATORS.map(g => [g.id, 1])), click: 1, clickDps: 0, global: 1, goldenFreq: 1 };
+  const m = {
+    gen: Object.fromEntries(GENERATORS.map(g => [g.id, 1])),
+    click: 1,
+    clickDps: 0,
+    global: 1,
+    goldenFreq: 1,
+    crit: 1,
+    weakSize: 1,
+    comboWindow: COMBO_WINDOW_MS,
+    comboCap: COMBO_CAP,
+    cooldown: 1,
+    ultraTime: ULTRA_TIME_MS,
+  };
   for (const u of UPGRADES) if (state.upgrades.has(u.id)) u.apply(m);
   m.global *= 1 + INSIGHT_BONUS * state.insights;
   m.global *= 1 + ACHIEVEMENT_BONUS * state.achievements.size;
@@ -504,8 +670,29 @@ function baseDps() {
   return GENERATORS.reduce((sum, g) => sum + state.gens[g.id] * unitRate(g), 0);
 }
 
+function skillDef(id) {
+  return SKILLS.find(k => k.id === id);
+}
+
+function skillActive(id, now = Date.now()) {
+  return now < state.skills[id].activeUntil;
+}
+
+function skillPower(id) {
+  return skillDef(id).power(state.skills[id].level);
+}
+
+function helperFactor(now = Date.now()) {
+  return frenzyFactor(now) * (skillActive('overclock', now) ? skillPower('overclock') : 1);
+}
+
+// Viraler Hype: mehr Tokens aus Schaden und Beute
+function tokenBoost(now = clock) {
+  return skillActive('midas', now) ? skillPower('midas') : 1;
+}
+
 function currentDps(now = Date.now()) {
-  return baseDps() * frenzyFactor(now);
+  return baseDps() * helperFactor(now);
 }
 
 function clickValue(now = Date.now()) {
@@ -562,21 +749,23 @@ function buyUpgrade(u) {
 
 function target() {
   if (state.boss) {
-    return { model: BOSS, name: BOSS.name, tag: 'Boss', tagClass: 'boss', seed: 7, hue: BOSS.hue, ultra: false, unit: state.boss, maxHp: state.boss.maxHp, meter: BOSS_METER, isBoss: true };
+    return { model: BOSS, name: BOSS.name, tag: 'Boss', tagClass: 'boss', seed: 7, hue: BOSS.hue, ultra: false, trait: null, unit: state.boss, maxHp: state.boss.maxHp, meter: BOSS_METER, isBoss: true };
   }
   const model = MODELS[state.enemy.kind];
   const ultra = state.enemyIndex === WAVE_SIZE - 1;
+  const base = ultra ? `${model.name} ${state.wave} Ultra` : `${model.name} ${state.wave}.${state.enemyIndex + 1}`;
   return {
     model,
+    trait: state.enemy.trait,
     // Jede KI bekommt eine leicht eigene Farbnuance ihres Modells.
     hue: (model.hue + (state.enemy.seed % 25) - 12 + 360) % 360,
     ultra,
-    name: ultra ? `${model.name} ${state.wave} Ultra` : `${model.name} ${state.wave}.${state.enemyIndex + 1}`,
+    name: state.enemy.forked ? `${base} (Fork)` : base,
     tag: ultra ? `Ultra · ${WAVE_SIZE}/${WAVE_SIZE}` : `KI ${state.enemyIndex + 1}/${WAVE_SIZE}`,
     tagClass: ultra ? 'ultra' : '',
     seed: state.enemy.seed,
     unit: state.enemy,
-    maxHp: enemyMaxHp(state.wave, state.enemyIndex),
+    maxHp: state.enemy.maxHp ?? enemyMaxHp(state.wave, state.enemyIndex),
     meter: ENEMY_METER,
     isBoss: false,
   };
@@ -585,7 +774,7 @@ function target() {
 // Jeder Schadenspunkt bringt Tokens. Überschüssiger Schaden geht auf die nächste KI über.
 function attack(amount) {
   if (!(amount > 0)) return;
-  earn(amount * tokenPerDamage());
+  earn(amount * tokenPerDamage() * tokenBoost());
   let left = amount;
   for (let guard = 0; left > 0 && guard < 500; guard++) {
     const unit = state.boss || state.enemy;
@@ -601,14 +790,34 @@ function attack(amount) {
 let lastLimitPopup = 0;
 
 function defeatEnemy() {
-  const loot = enemyMaxHp(state.wave, state.enemyIndex) * LOOT_MULT * tokenPerDamage();
+  const e = state.enemy;
+  const t = target();
+  const loot = t.maxHp * LOOT_MULT * tokenPerDamage() * tokenBoost();
   earn(loot);
   state.kills++;
   addWeeklyKill();
+  missionProgress('kills');
+  if (e.trait) {
+    state.traitKills++;
+    missionProgress('traits');
+  }
   if (!quiet && Date.now() - lastLimitPopup > 450) {
     lastLimitPopup = Date.now();
     popup('Limit erreicht', 'limit', 50, 18);
     popup(`+${fmt(loot)}`, 'loot', 50, 30, true);
+    shatter(t.hue);
+    SFX.kill();
+  }
+  // Forkt sich: Die Kopie muss auch noch besiegt werden.
+  if (e.trait === 'fork' && !e.forked) {
+    const hp = t.maxHp * FORK_HP;
+    state.enemy = { kind: e.kind, seed: e.seed + 1, hp, maxHp: hp, trait: null, forked: true, spawnedAt: e.spawnedAt };
+    if (!quiet) popup('Fork!', 'limit', 50, 30);
+    return;
+  }
+  if (state.enemyIndex === WAVE_SIZE - 1) {
+    state.ultraWins++;
+    missionProgress('ultras');
   }
   state.enemyIndex++;
   if (state.enemyIndex >= WAVE_SIZE) {
@@ -616,10 +825,32 @@ function defeatEnemy() {
     state.wave++;
     if (state.wave > state.highestWave) {
       state.highestWave = state.wave;
-      if (state.wave % 10 === 0) toast(`<strong>Welle ${state.wave}</strong> erreicht · Tokens jetzt +${fmt((tokenPerDamage() - 1) * 100)} %`, 'wave');
+      const skill = SKILLS.find(k => k.wave === state.wave);
+      if (skill) toast(`<strong>${skill.name} verfügbar</strong><br><span class="muted">Im Tab „Fähigkeiten“ freischalten.</span>`, skill.icon);
+      else if (state.wave % 10 === 0) toast(`<strong>Welle ${state.wave}</strong> erreicht · Tokens jetzt +${fmt((tokenPerDamage() - 1) * 100)} %`, 'wave');
     }
   }
   state.enemy = newEnemy(state.wave, state.enemyIndex);
+}
+
+// Ultra-KIs müssen vor ihrem Launch fallen, sonst geht es zurück zu KI 1 der Welle.
+function checkUltra(now) {
+  if (state.boss || state.enemyIndex !== WAVE_SIZE - 1) return;
+  if (now - state.enemy.spawnedAt < mods.ultraTime) return;
+  state.ultraFails++;
+  state.enemyIndex = 0;
+  clock = now;
+  state.enemy = newEnemy(state.wave, 0);
+  if (!quiet) {
+    toast('<strong>Launch verpasst.</strong> Die Ultra-KI ist live gegangen. Zurück zu KI 1 dieser Welle.', 'rocket');
+    SFX.fail();
+  }
+}
+
+// Gepanzerte KIs: Helfer halber Schaden, Taps 50 % mehr
+function traitFactor(source) {
+  if (state.boss || state.enemy.trait !== 'armored') return 1;
+  return source === 'helper' ? 0.5 : source === 'tap' ? 1.5 : 1;
 }
 
 function addWeeklyKill() {
@@ -653,18 +884,21 @@ function challengeBoss() {
 
 function retreat() {
   state.boss = null;
+  state.enemy.spawnedAt = Date.now();
   toast('Rückzug. Das Wochenlimit wartet, mit vollem Limit.', 'clock');
   render();
 }
 
 function defeatBoss() {
   state.boss = null;
+  state.enemy.spawnedAt = clock;
   state.week.bossDefeated = true;
   state.bossWins++;
   mods = computeMods();
   const reward = Math.max(1000, incomeRate() * 3600);
   earn(reward);
   showOverlay('Wochenlimit besiegt', icon('seal'));
+  SFX.win();
   toast(`<strong>Wochenlimit besiegt.</strong> +${fmt(reward)} Tokens und dauerhaft +${BOSS_WIN_BONUS * 100} % Schaden.`, 'seal');
 }
 
@@ -678,18 +912,101 @@ function checkWeek(now) {
   state.boss = null;
 }
 
-function attackTap(event) {
+const combo = { count: 0, lastAt: 0 };
+const tapLog = [];
+let throttledUntil = 0;
+let lastThrottlePopup = 0;
+let autoTaps = 0;
+let weak = { x: 0.5, y: 0.5, movedAt: 0 };
+
+function comboMult() {
+  return 1 + Math.min(combo.count, mods.comboCap) * COMBO_STEP;
+}
+
+function weakRadius() {
+  return WEAKSPOT_RADIUS * mods.weakSize;
+}
+
+// Die Schwachstelle springt an eine neue Stelle innerhalb der KI.
+function moveWeakSpot(now) {
+  const a = Math.random() * Math.PI * 2;
+  const r = Math.sqrt(Math.random()) * 0.26;
+  weak = { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r, movedAt: now };
+  const el = $('weakspot');
+  el.style.left = `${weak.x * 100}%`;
+  el.style.top = `${weak.y * 100}%`;
+  el.style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
+  restartAnimation(el, 'pop');
+}
+
+// Ein Tap auf die KI – vom Finger/der Maus (mit Koordinaten) oder vom Prompt-Sturm (auto).
+function doTap({ clientX = null, clientY = null, auto = false } = {}) {
   const now = Date.now();
-  const dmg = clickValue(now);
-  state.clicks++;
-  // Schadenszahl dort, wo getippt wurde (per Tastatur: in der Mitte).
-  const rect = $('arena').getBoundingClientRect();
-  const fromPointer = event.detail > 0 && event.clientX;
-  const x = fromPointer ? (event.clientX - rect.left) / rect.width * 100 : randomBetween(42, 58);
-  const y = fromPointer ? (event.clientY - rect.top) / rect.height * 100 - 8 : randomBetween(38, 50);
-  popup(`−${fmt(dmg, 1)}`, 'dmg', x, y);
+  clock = now;
+  const t = target();
+  if (!auto && t.trait === 'ratelimit') {
+    if (now < throttledUntil) {
+      if (now - lastThrottlePopup > 350) {
+        lastThrottlePopup = now;
+        popup('429', 'blocked', randomBetween(40, 60), randomBetween(30, 45));
+      }
+      return;
+    }
+    tapLog.push(now);
+    while (tapLog.length && tapLog[0] < now - 1000) tapLog.shift();
+    if (tapLog.length > RATE_LIMIT_TAPS) {
+      throttledUntil = now + RATE_LIMIT_MS;
+      tapLog.length = 0;
+      combo.count = 0;
+      state.rateLimited++;
+      SFX.limited();
+      return;
+    }
+  }
+  if (now - combo.lastAt > mods.comboWindow) combo.count = 0;
+  combo.count++;
+  combo.lastAt = now;
+  state.maxCombo = Math.max(state.maxCombo, combo.count);
+  missionProgress('combo', combo.count, true);
+  if (auto) autoTaps++;
+  else {
+    state.clicks++;
+    missionProgress('taps');
+  }
+
+  let crit = false;
+  if (clientX !== null) {
+    const r = $('enemy').getBoundingClientRect();
+    crit = Math.hypot((clientX - r.left) / r.width - weak.x, (clientY - r.top) / r.height - weak.y) <= weakRadius();
+  }
+  // Exploit-Modus: jeder Tap kann kritisch treffen, auch ohne die Schwachstelle
+  if (!crit && skillActive('crit', now)) crit = Math.random() * 100 < skillPower('crit');
+  const focus = skillActive('focus', now) ? skillPower('focus') : 1;
+  const dmg = clickValue(now) * comboMult() * focus * (crit ? CRIT_MULT * mods.crit : 1) * traitFactor('tap');
+
+  // Schadenszahl dort, wo getippt wurde (per Tastatur oder Sturm: rund um die Mitte)
+  const arena = $('arena').getBoundingClientRect();
+  const x = clientX !== null ? (clientX - arena.left) / arena.width * 100 : randomBetween(38, 62);
+  const y = clientY !== null ? (clientY - arena.top) / arena.height * 100 - 8 : randomBetween(32, 55);
+  if (crit) {
+    state.crits++;
+    missionProgress('crits');
+    popup(`Kritisch −${fmt(dmg, 1)}`, 'crit', x, y);
+    restartAnimation($('arena'), 'shake');
+    SFX.crit();
+    moveWeakSpot(now);
+  } else if (!auto || autoTaps % 3 === 0) {
+    popup(`−${fmt(dmg, 1)}`, auto ? 'auto' : 'dmg', x, y);
+    SFX.tap(combo.count);
+  }
   restartAnimation($('glyph'), 'hit');
   attack(dmg);
+}
+
+function attackTap(event) {
+  const pointer = event.detail > 0;
+  if (pointer) event.currentTarget.blur();
+  doTap({ clientX: pointer ? event.clientX : null, clientY: pointer ? event.clientY : null });
   render();
 }
 
@@ -700,8 +1017,173 @@ function advance(ms, end) {
   const stepMs = ms / steps;
   for (let i = 1; i <= steps; i++) {
     const t = end - ms + i * stepMs;
+    clock = t;
     checkWeek(t);
-    attack(baseDps() * frenzyFactor(t) * stepMs / 1000);
+    checkUltra(t);
+    if (!state.boss && state.enemy.trait === 'regen') {
+      const maxHp = target().maxHp;
+      state.enemy.hp = Math.min(maxHp, state.enemy.hp + maxHp * REGEN_PER_S * stepMs / 1000);
+    }
+    attack(baseDps() * helperFactor(t) * traitFactor('helper') * stepMs / 1000);
+  }
+}
+
+// ---------- Fähigkeiten ----------
+
+let stormAcc = 0;
+
+function skillUnlocked(skill) {
+  return state.skills[skill.id].level > 0;
+}
+
+function skillCost(skill) {
+  return skill.cost * SKILL_COST_GROWTH ** state.skills[skill.id].level;
+}
+
+function canLevelSkill(skill) {
+  const lvl = state.skills[skill.id].level;
+  return lvl < SKILL_MAX_LEVEL && state.highestWave >= skill.wave && state.tokens >= skillCost(skill);
+}
+
+function levelSkill(id) {
+  const skill = skillDef(id);
+  if (!canLevelSkill(skill)) return;
+  state.tokens -= skillCost(skill);
+  const st = state.skills[id];
+  st.level++;
+  toast(st.level === 1
+    ? `<strong>${skill.name} freigeschaltet</strong><br><span class="muted">${skill.describe(1)}</span>`
+    : `<strong>${skill.name} · Stufe ${st.level}</strong><br><span class="muted">${skill.describe(st.level)}</span>`, skill.icon);
+  SFX.win();
+  render();
+}
+
+function useSkill(id) {
+  const skill = skillDef(id);
+  const st = state.skills[id];
+  const now = Date.now();
+  if (!skill) return;
+  if (!skillUnlocked(skill)) {
+    state.tab = 'skills';
+    renderTabs();
+    toast(`<strong>${skill.name}</strong> schaltest du im Tab „Fähigkeiten“ frei${state.highestWave < skill.wave ? ` (ab Welle ${skill.wave})` : ''}.`, skill.icon);
+    render();
+    return;
+  }
+  if (now < st.readyAt) return;
+  st.readyAt = now + skill.cooldown(st.level) * mods.cooldown;
+  state.skillUses++;
+  missionProgress('skills');
+  SFX.skill();
+  if (id === 'bomb') {
+    clock = now;
+    const dmg = (baseDps() * skill.power(st.level) + clickValue(now) * (20 + 10 * st.level)) * traitFactor('skill');
+    popup(`Superschlag −${fmt(dmg)}`, 'crit', 50, 40);
+    restartAnimation($('arena'), 'flash');
+    restartAnimation($('arena'), 'shake');
+    attack(dmg);
+  } else {
+    st.activeUntil = now + skill.duration(st.level);
+  }
+  render();
+}
+
+// ---------- Aufträge ----------
+
+function missionType(type) {
+  return MISSION_TYPES.find(t => t.type === type);
+}
+
+function newMission(exclude) {
+  const pool = MISSION_TYPES.filter(t => !exclude.includes(t.type) && (!t.when || t.when(state)));
+  const t = pool[Math.floor(Math.random() * pool.length)];
+  const [lo, hi] = t.range;
+  return {
+    type: t.type,
+    target: Math.round(lo + Math.random() * (hi - lo)),
+    progress: 0,
+    reward: Math.round(Math.max(250, incomeRate() * (150 + Math.random() * 150))),
+  };
+}
+
+function ensureMissions() {
+  while (state.missions.length < MISSION_COUNT) state.missions.push(newMission(state.missions.map(m => m.type)));
+}
+
+// value: Anzahl (aufaddiert) bzw. bei isMax der neue Höchstwert (z. B. Combo)
+function missionProgress(type, value = 1, isMax = false) {
+  let done = false;
+  for (const m of state.missions) {
+    if (m.type !== type) continue;
+    m.progress = isMax ? Math.max(m.progress, value) : m.progress + value;
+    if (m.progress >= m.target) {
+      done = true;
+      earn(m.reward);
+      state.missionsDone++;
+      toast(`<strong>Auftrag erledigt</strong> · ${missionType(m.type).text(m.target)}<br><span class="muted">+${fmt(m.reward)} Tokens</span>`, 'checklist');
+      SFX.win();
+    }
+  }
+  if (done) {
+    state.missions = state.missions.filter(m => m.progress < m.target);
+    ensureMissions();
+  }
+}
+
+// ---------- Töne (Web Audio, dezent) ----------
+
+const audio = { ctx: null };
+
+function blip({ freq = 440, to = freq, dur = 0.08, type = 'sine', gain = 0.04, delay = 0 }) {
+  if (!state.sound || quiet || document.hidden) return;
+  try {
+    audio.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audio.ctx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  } catch {
+    // Kein Ton verfügbar – das Spiel läuft auch ohne.
+  }
+}
+
+const SFX = {
+  tap: n => blip({ freq: 520 + Math.min(n, 60) * 8, to: 360, dur: 0.06, gain: 0.025 }),
+  crit: () => {
+    blip({ freq: 880, to: 1320, dur: 0.12, type: 'triangle', gain: 0.045 });
+    blip({ freq: 1320, to: 1760, dur: 0.14, type: 'triangle', gain: 0.035, delay: 0.06 });
+  },
+  kill: () => blip({ freq: 320, to: 90, dur: 0.2, type: 'triangle', gain: 0.05 }),
+  limited: () => blip({ freq: 190, to: 140, dur: 0.22, type: 'square', gain: 0.02 }),
+  skill: () => blip({ freq: 240, to: 980, dur: 0.3, type: 'sawtooth', gain: 0.02 }),
+  fail: () => blip({ freq: 320, to: 110, dur: 0.5, type: 'sawtooth', gain: 0.025 }),
+  win: () => [660, 880, 1320].forEach((freq, i) => blip({ freq, dur: 0.16, type: 'triangle', gain: 0.035, delay: i * 0.08 })),
+};
+
+// Splitter, wenn eine KI fällt
+function shatter(hue) {
+  if (quiet || document.hidden || LOGO_REDUCED_MOTION) return;
+  const layer = $('popups');
+  for (let i = 0; i < 12; i++) {
+    const shard = document.createElement('span');
+    shard.className = 'shard';
+    const a = Math.random() * Math.PI * 2;
+    const d = 60 + Math.random() * 90;
+    shard.style.setProperty('--dx', `${Math.round(Math.cos(a) * d)}px`);
+    shard.style.setProperty('--dy', `${Math.round(Math.sin(a) * d)}px`);
+    shard.style.background = `hsl(${Math.round(hue + Math.random() * 40 - 20)}, 85%, 60%)`;
+    shard.addEventListener('animationend', () => shard.remove());
+    layer.append(shard);
   }
 }
 
@@ -818,14 +1300,21 @@ const island = { hover: false, pinned: false, drag: false, closeTimer: 0, alertT
 let keyboardNav = false;
 let lastPointerType = 'mouse';
 
-// Aufklappen nach oben, wenn darüber genug Platz ist – sonst nach unten.
-// Passt der Inhalt nirgends ganz hin, scrollt er innerhalb der Blase.
+// Die Blase sitzt im Kopf neben „No Limit“. Aufgeklappt wird sie 440 px breit; passt das
+// nach rechts nicht, nimmt sie die ganze Kopfbreite ein und überdeckt die Marke vollständig.
+// Sie klappt nach unten auf, außer oben ist mehr Platz; passt sie nirgends, scrollt der Inhalt.
 function placeIsland(el) {
   const anchor = $('limits').getBoundingClientRect();
+  const head = $('limits').parentElement.getBoundingClientRect();
+  const fitsRight = anchor.left + 440 <= head.right;
+  const width = fitsRight ? 440 : head.width;
+  const shift = fitsRight ? 0 : head.left - anchor.left;
+  el.style.setProperty('--island-open-w', `${Math.round(width)}px`);
+  el.style.setProperty('--island-shift', `${Math.round(shift)}px`);
   const needed = el.querySelector('.island-content').offsetHeight;
   const above = anchor.top - 8;
   const below = window.innerHeight - anchor.bottom - 8;
-  const up = above >= needed || above >= below;
+  const up = above > below && above >= needed;
   const room = Math.max(180, up ? above : below);
   el.classList.toggle('down', !up);
   el.classList.toggle('scroll', needed > room);
@@ -1258,7 +1747,7 @@ function renderGenerators() {
     if (el.revealed !== revealed) {
       el.revealed = revealed;
       el.tile.innerHTML = icon(revealed ? g.icon : 'question');
-      el.tile.style.setProperty('--tile', revealed ? g.color : 'var(--fill-2)');
+      el.tile.style.setProperty('--tile', revealed ? tileBg(g.colors) : 'var(--fill-2)');
       el.name.textContent = revealed ? g.name : 'Noch nicht entdeckt';
       el.desc.textContent = revealed ? g.desc : 'Sammle mehr Tokens, um ihn freizuschalten.';
       el.btn.classList.toggle('teaser', !revealed);
@@ -1286,7 +1775,7 @@ function renderUpgrades() {
       btn.className = 'upgrade';
       btn.dataset.id = u.id;
       btn.innerHTML = `
-        <span class="tile" style="--tile:${u.color}">${icon(u.icon)}${u.badge ? `<span class="tile-badge">${u.badge}</span>` : ''}</span>
+        <span class="tile" style="--tile:${tileBg(u.colors)}">${icon(u.icon)}${u.badge ? `<span class="tile-badge">${u.badge}</span>` : ''}</span>
         <span class="upgrade-name">${u.name}</span>
         <span class="upgrade-desc">${u.flavor}</span>
         <span class="upgrade-effect">${u.effect}</span>
@@ -1361,6 +1850,12 @@ function renderEnemy(now) {
     $('enemy-tag').textContent = isNew ? `Neu · ${t.tag}` : t.tag;
     $('enemy-tag').className = `tag ${isNew ? 'new' : t.tagClass}`;
     $('meter-label').textContent = t.meter.label;
+    const trait = t.trait ? TRAITS[t.trait] : null;
+    $('enemy-traits').hidden = !trait;
+    $('enemy-traits').innerHTML = trait ? `<span class="trait">${icon(trait.icon)}${trait.name}</span><span class="trait-desc">${trait.desc}</span>` : '';
+    for (const k of TRAIT_KEYS) $('enemy').classList.toggle(`trait-${k}`, t.trait === k);
+    if (isNew) missionProgress('discover');
+    moveWeakSpot(now);
     // Neue KI: Leiste ohne Animation auf den neuen Stand setzen.
     fill.style.transition = 'none';
     fill.style.width = pct;
@@ -1380,6 +1875,119 @@ function renderEnemy(now) {
   $('hp-text').textContent = `${fmt(Math.ceil(t.unit.hp))} / ${fmt(t.maxHp)} HP`;
   $('retreat-btn').hidden = !t.isBoss;
   $('tap-hint').hidden = state.clicks >= 3;
+  const throttled = t.trait === 'ratelimit' && now < throttledUntil;
+  $('throttle').hidden = !throttled;
+  $('enemy').classList.toggle('throttled', throttled);
+}
+
+// Combo-Anzeige und Launch-Countdown in der Arena
+function renderArenaHud(now) {
+  const comboActive = combo.count >= 3 && now - combo.lastAt <= mods.comboWindow;
+  $('combo').hidden = !comboActive;
+  if (comboActive) {
+    $('combo-count').textContent = `Combo ${combo.count}`;
+    $('combo-mult').textContent = `×${fmt(comboMult(), 2)}`;
+    $('combo-fill').style.width = `${clamp01(1 - (now - combo.lastAt) / mods.comboWindow) * 100}%`;
+  }
+  const t = target();
+  $('launch').hidden = !t.ultra;
+  if (t.ultra) {
+    const left = Math.max(0, state.enemy.spawnedAt + mods.ultraTime - now);
+    $('launch-text').textContent = `Launch in ${Math.ceil(left / 1000)} s`;
+    $('launch').classList.toggle('urgent', left < 10_000);
+  }
+}
+
+// Runde Fähigkeits-Knöpfe unten im Angriffsfeld
+function buildSkills() {
+  $('skill-dock').replaceChildren(...SKILLS.map((k, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'dock-skill';
+    btn.dataset.skill = k.id;
+    btn.style.setProperty('--skill-bg', tileBg(k.colors));
+    btn.innerHTML = `<span class="dock-icon">${icon(k.icon)}</span><span class="dock-time"></span><span class="dock-level"></span>`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      useSkill(k.id);
+    });
+    btn.dataset.key = String(i + 1);
+    return btn;
+  }));
+  $('skill-list').replaceChildren(...SKILLS.map(k => {
+    const btn = document.createElement('button');
+    btn.className = 'row skill-row';
+    btn.dataset.skill = k.id;
+    btn.innerHTML = `
+      <span class="tile" style="--tile:${tileBg(k.colors)}">${icon(k.icon)}</span>
+      <span class="row-main">
+        <span class="row-title">${k.name}<span class="row-count skill-lvl"></span></span>
+        <span class="row-sub skill-now"></span>
+        <span class="row-sub skill-next"></span>
+        <span class="skill-pips">${'<i></i>'.repeat(SKILL_MAX_LEVEL)}</span>
+      </span>
+      <span class="price"><span class="skill-cost"></span></span>`;
+    btn.addEventListener('click', () => levelSkill(k.id));
+    return btn;
+  }));
+}
+
+function renderSkills(now) {
+  for (const btn of $('skill-dock').children) {
+    const k = skillDef(btn.dataset.skill);
+    const st = state.skills[k.id];
+    const unlocked = st.level > 0;
+    const active = now < st.activeUntil;
+    const cooling = unlocked && now < st.readyAt;
+    btn.classList.toggle('locked', !unlocked);
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('cooling', cooling && !active);
+    btn.classList.toggle('ready', unlocked && !cooling);
+    btn.style.setProperty('--cd', cooling && !active ? String(clamp01((st.readyAt - now) / (k.cooldown(st.level) * mods.cooldown))) : '0');
+    btn.querySelector('.dock-time').textContent = active ? Math.ceil((st.activeUntil - now) / 1000) : cooling ? Math.ceil((st.readyAt - now) / 1000) : '';
+    btn.querySelector('.dock-level').textContent = unlocked ? st.level : '';
+    btn.title = unlocked
+      ? `${k.name} (Stufe ${st.level}, Taste ${btn.dataset.key}): ${k.describe(st.level)}`
+      : `${k.name}: noch gesperrt – im Tab „Fähigkeiten“ freischalten`;
+    btn.setAttribute('aria-label', btn.title);
+  }
+  if (state.tab !== 'skills') return;
+  for (const row of $('skill-list').children) {
+    const k = skillDef(row.dataset.skill);
+    const lvl = state.skills[k.id].level;
+    const reachable = state.highestWave >= k.wave;
+    const maxed = lvl >= SKILL_MAX_LEVEL;
+    row.disabled = !canLevelSkill(k);
+    row.classList.toggle('teaser', !reachable && lvl === 0);
+    row.querySelector('.skill-lvl').textContent = lvl > 0 ? `Stufe ${lvl}` : '';
+    row.querySelector('.skill-now').textContent = k.describe(Math.max(lvl, 1));
+    row.querySelector('.skill-next').textContent = maxed ? 'Höchste Stufe erreicht' : lvl > 0 ? `Nächste Stufe: ${k.describe(lvl + 1)}` : `Abklingzeit ${Math.round(k.cooldown(1) / 1000)} s`;
+    row.querySelectorAll('.skill-pips i').forEach((pip, i) => pip.classList.toggle('on', i < lvl));
+    row.querySelector('.skill-cost').innerHTML = maxed ? 'Max'
+      : !reachable ? `ab Welle ${k.wave}`
+        : `${lvl === 0 ? 'Freischalten · ' : ''}${fmt(skillCost(k))}${icon('token')}`;
+  }
+}
+
+let missionsKey = '';
+function renderMissions() {
+  const key = state.missions.map(m => `${m.type}:${m.progress}/${m.target}`).join('|');
+  if (key === missionsKey) return;
+  missionsKey = key;
+  $('missions').replaceChildren(...state.missions.map(m => {
+    const t = missionType(m.type);
+    const row = document.createElement('div');
+    row.className = 'row mission';
+    row.innerHTML = `
+      <span class="tile" style="--tile:${tileBg(['#d97757', '#ff9f0a'])}">${icon(t.icon)}</span>
+      <span class="row-main">
+        <span class="row-title">${t.text(m.target)}</span>
+        <span class="mission-bar"><span style="width:${clamp01(m.progress / m.target) * 100}%"></span></span>
+        <span class="row-sub">${fmt(Math.min(m.progress, m.target))} von ${fmt(m.target)}</span>
+      </span>
+      <span class="price">+${fmt(m.reward)}${icon('token')}</span>`;
+    return row;
+  }));
+  $('missions-count').textContent = `${fmt(state.missionsDone)} erledigt`;
 }
 
 function renderWeek(now) {
@@ -1403,6 +2011,11 @@ function renderStats(now) {
     ['Höchste Welle', fmt(state.highestWave)],
     ['Wochenlimits besiegt', fmt(state.bossWins)],
     ['Taps', fmt(state.clicks)],
+    ['Kritische Treffer', fmt(state.crits)],
+    ['Beste Combo', fmt(state.maxCombo)],
+    ['Ultra-KIs vor dem Launch', fmt(state.ultraWins)],
+    ['Aufträge erledigt', fmt(state.missionsDone)],
+    ['Fähigkeiten eingesetzt', fmt(state.skillUses)],
     ['Helfer', fmt(totalGenerators(state))],
     ['Geistesblitze', fmt(state.goldenClicks)],
     ['Schadensbonus', `×${fmt(mods.global, 2)}`],
@@ -1412,6 +2025,7 @@ function renderStats(now) {
 }
 
 function renderTabs() {
+  if (!$(`tab-${state.tab}`)) state.tab = state.tab === 'achievements' ? 'missions' : 'helpers';
   for (const btn of document.querySelectorAll('[role="tab"]')) {
     const active = btn.dataset.tab === state.tab;
     btn.setAttribute('aria-selected', String(active));
@@ -1447,19 +2061,23 @@ function render() {
   }
 
   renderEnemy(now);
+  renderArenaHud(now);
+  renderSkills(now);
   renderWeek(now);
   renderIsland(now);
   renderGenerators();
   renderUpgrades();
   renderStats(now);
   renderDex();
+  renderMissions();
+  $('sound-btn').setAttribute('aria-checked', String(state.sound));
 }
 
 // Schadenszahlen und Beute über der KI; Position in Prozent der Arena.
 function popup(text, kind, x, y, withToken = false) {
   if (quiet || document.hidden) return;
   const layer = $('popups');
-  while (layer.childElementCount > 24) layer.firstElementChild.remove();
+  while (layer.childElementCount > 60) layer.firstElementChild.remove();
   const el = document.createElement('span');
   el.className = `popup ${kind}`;
   el.textContent = text;
@@ -1550,8 +2168,10 @@ function exportSave() {
 
 function resetView() {
   mods = computeMods();
+  ensureMissions();
   upgradesKey = '';
   enemyKey = '';
+  missionsKey = '';
   save();
   renderAchievements();
   renderTabs();
@@ -1606,6 +2226,17 @@ function tick() {
   } else if (elapsed > 0) {
     advance(elapsed, now);
   }
+  if (skillActive('storm', now)) {
+    stormAcc += Math.min(Math.max(elapsed, 0), 1000) / 1000 * skillPower('storm');
+    while (stormAcc >= 1) {
+      stormAcc -= 1;
+      doTap({ auto: true });
+    }
+  } else {
+    stormAcc = 0;
+  }
+  if (now - weak.movedAt > WEAKSPOT_MOVE_MS) moveWeakSpot(now);
+  checkUltra(now);
   if (now - lastAutoPopup >= 1000 && baseDps() > 0) {
     lastAutoPopup = now;
     popup(`−${fmt(currentDps(now), 1)}`, 'auto', randomBetween(30, 70), randomBetween(55, 75));
@@ -1657,7 +2288,9 @@ function init() {
   $('golden').innerHTML = icon('token');
   buildGenerators();
   buildWeekBar();
+  buildSkills();
   checkWeek(Date.now());
+  ensureMissions();
   applyOfflineProgress();
   initIsland();
 
@@ -1670,6 +2303,17 @@ function init() {
   $('export-btn').addEventListener('click', exportSave);
   $('import-btn').addEventListener('click', importSave);
   $('reset-btn').addEventListener('click', hardReset);
+  $('sound-btn').addEventListener('click', () => {
+    state.sound = !state.sound;
+    if (state.sound) SFX.win();
+    render();
+  });
+  // Tasten 1–6 lösen die Fähigkeiten aus
+  document.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey || !$('modal').hidden || e.target.closest?.('input, textarea')) return;
+    const i = Number(e.key) - 1;
+    if (Number.isInteger(i) && i >= 0 && i < SKILLS.length) useSkill(SKILLS[i].id);
+  });
   $('glyph').addEventListener('animationend', e => {
     if (e.target === $('glyph')) e.target.classList.remove('hit', 'spawn');
   });
@@ -1692,6 +2336,7 @@ function init() {
   renderAchievements();
   renderTabs();
   render();
+  moveWeakSpot(Date.now());
   setInterval(tick, TICK_MS);
 }
 

@@ -12,41 +12,10 @@
     <section class="card stage">
       <header class="stage-head">
         <div class="brand"><span class="brand-mark" data-icon="token"></span>No Limit</div>
-        <button id="daily-btn" class="pill-btn accent" hidden><span data-icon="gift"></span>Tagesbonus</button>
-      </header>
-
-      <div class="stats-row">
-        <div class="stat stat-main">
-          <span class="stat-label">Tokens</span>
-          <span id="tokens" class="stat-value">0</span>
-          <span id="tps" class="stat-sub"></span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Schaden/s</span>
-          <span id="dps" class="stat-value">0</span>
-          <span id="click-dmg" class="stat-sub"></span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Welle</span>
-          <span id="wave" class="stat-value">1</span>
-          <span id="wave-sub" class="stat-sub"></span>
-        </div>
-      </div>
-
-      <div id="arena" class="arena">
-        <button id="enemy" class="enemy" aria-label="KI angreifen">
-          <span class="glyph-float"><span id="glyph" class="glyph"></span></span>
-        </button>
-        <div id="popups" class="popups"></div>
-        <p id="tap-hint" class="tap-hint">Tippe auf die KI</p>
-      </div>
-
-      <div class="enemy-info">
         <!-- Limit-Blase: zugeklappt die Countdowns, aufgeklappt die Limit-Einstellungen -->
         <div id="limits" class="limits">
           <div id="island" class="island">
             <button id="island-pill" class="island-pill" aria-expanded="false" aria-controls="island-panel">
-              <span class="island-mark" data-icon="token"></span>
               <span id="pill-limits" class="pill-limits">
                 <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-session" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-session-text">5 Std.</span></span>
                 <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-weekly" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-weekly-text">Woche</span></span>
@@ -97,10 +66,54 @@
             </div>
           </div>
         </div>
+      </header>
+
+      <div class="stats-row">
+        <div class="stat stat-main">
+          <span class="stat-label">Tokens</span>
+          <span id="tokens" class="stat-value">0</span>
+          <span id="tps" class="stat-sub"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Schaden/s</span>
+          <span id="dps" class="stat-value">0</span>
+          <span id="click-dmg" class="stat-sub"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Welle</span>
+          <span id="wave" class="stat-value">1</span>
+          <span id="wave-sub" class="stat-sub"></span>
+        </div>
+      </div>
+
+      <div id="arena" class="arena">
+        <button id="enemy" class="enemy" aria-label="KI angreifen">
+          <span class="glyph-float"><span id="glyph" class="glyph"></span></span>
+          <span id="weakspot" class="weakspot" aria-hidden="true"></span>
+        </button>
+        <div id="popups" class="popups"></div>
+        <div id="combo" class="combo" hidden>
+          <span id="combo-count" class="combo-count"></span>
+          <span id="combo-mult" class="combo-mult"></span>
+          <span class="combo-bar"><span id="combo-fill" class="combo-fill"></span></span>
+        </div>
+        <div class="arena-corner">
+          <div id="launch" class="launch" hidden title="Ultra-KIs müssen fallen, bevor sie live gehen – sonst geht es zurück zu KI 1 dieser Welle.">
+            <span data-icon="rocket"></span><span id="launch-text"></span>
+          </div>
+          <button id="daily-btn" class="pill-btn accent daily-btn" hidden><span data-icon="gift"></span>Tagesbonus</button>
+        </div>
+        <div id="throttle" class="throttle" hidden>429 · Too Many Requests</div>
+        <p id="tap-hint" class="tap-hint">Tippe auf die KI. Der leuchtende Punkt trifft kritisch.</p>
+        <div id="skill-dock" class="skill-dock" aria-label="Fähigkeiten"></div>
+      </div>
+
+      <div class="enemy-info">
         <div class="enemy-title">
           <span id="enemy-name" class="enemy-name"></span>
           <span id="enemy-tag" class="tag"></span>
         </div>
+        <div id="enemy-traits" class="traits" hidden></div>
         <p id="enemy-quip" class="enemy-quip"></p>
         <div class="meter-head">
           <span id="meter-label">5-Stunden-Limit</span>
@@ -135,8 +148,9 @@
     <section class="card side">
       <div class="segmented" role="tablist" aria-label="Bereiche">
         <button role="tab" data-tab="helpers" aria-selected="true">Helfer</button>
+        <button role="tab" data-tab="skills" aria-selected="false">Fähigkeiten</button>
         <button role="tab" data-tab="upgrades" aria-selected="false">Upgrades<span id="upgrade-badge" class="badge" hidden></span></button>
-        <button role="tab" data-tab="achievements" aria-selected="false">Sammlung</button>
+        <button role="tab" data-tab="missions" aria-selected="false">Ziele</button>
         <button role="tab" data-tab="more" aria-selected="false">Mehr</button>
       </div>
 
@@ -152,12 +166,24 @@
         <div id="generators" class="list"></div>
       </div>
 
+      <div id="tab-skills" class="tab" role="tabpanel" hidden>
+        <div class="tab-head">
+          <span class="muted small">Freischalten und hochleveln – auslösen über die Kreise im Angriffsfeld</span>
+        </div>
+        <div id="skill-list" class="list"></div>
+      </div>
+
       <div id="tab-upgrades" class="tab" role="tabpanel" hidden>
         <div id="upgrades" class="upgrades"></div>
         <p id="upgrades-empty" class="empty">Noch keine Upgrades verfügbar. Weiter tippen!</p>
       </div>
 
-      <div id="tab-achievements" class="tab" role="tabpanel" hidden>
+      <div id="tab-missions" class="tab" role="tabpanel" hidden>
+        <div class="tab-head">
+          <span class="muted small">Aufträge · erledigte werden sofort ersetzt</span>
+          <span id="missions-count" class="muted small"></span>
+        </div>
+        <div id="missions" class="list"></div>
         <div class="tab-head">
           <span class="muted small">KI-Sammlung</span>
           <span id="dex-count" class="muted small"></span>
@@ -191,13 +217,24 @@
         <div class="group">
           <h2>So funktioniert's</h2>
           <ul class="howto">
-            <li>Tippe auf die KI. Jeder Schadenspunkt bringt Tokens, jeder Sieg zusätzlich Beute.</li>
+            <li>Tippe auf die KI. Triffst du den leuchtenden Punkt, ist es ein kritischer Treffer.</li>
+            <li>Schnell hintereinander tippen baut eine Combo auf, die deinen Schaden erhöht.</li>
             <li>Die Lebensleiste ist ein 5-Stunden-Limit: Dein Schaden verbraucht es, bei 100 % ist die KI besiegt.</li>
-            <li>10 KIs pro Welle, die zehnte ist eine Ultra-Version mit mehr HP. Jede KI ist etwas stärker als die vorige.</li>
-            <li>Jeder Sieg füllt die Wochenleiste. Bei 100 % erscheint der Boss „Das Wochenlimit“.</li>
-            <li>In der schwarzen Limit-Blase über dem KI-Namen stellst du deine echten Claude-Limits ein. Die Boss-Woche richtet sich nach deinem Wochen-Reset.</li>
+            <li>Die zehnte KI jeder Welle ist eine Ultra-Version mit Launch-Countdown. Schaffst du sie nicht rechtzeitig, geht es zurück zu KI 1.</li>
+            <li>Manche KIs haben Eigenschaften: gepanzert, flink, regenerierend, mit Ratenlimit oder sie forken sich.</li>
+            <li>Fähigkeiten wie Superschlag oder Viraler Hype schaltest du im Tab „Fähigkeiten“ frei und levelst sie bis Stufe 10. Auslösen über die Kreise im Angriffsfeld, am Desktop auch mit den Tasten 1 bis 6.</li>
+            <li>Aufträge bringen Bonus-Tokens. Jeder Sieg füllt die Wochenleiste für den Boss „Das Wochenlimit“.</li>
+            <li>In der schwarzen Limit-Blase neben „No Limit“ stellst du deine echten Claude-Limits ein.</li>
             <li>Helfer kämpfen bis zu 12 Stunden weiter, während du weg bist.</li>
           </ul>
+        </div>
+
+        <div class="group">
+          <h2>Einstellungen</h2>
+          <div class="kv">
+            <span>Töne</span>
+            <button id="sound-btn" class="switch" role="switch" aria-checked="true" aria-label="Töne"></button>
+          </div>
         </div>
 
         <div class="group">

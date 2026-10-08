@@ -1,4 +1,4 @@
-/* Layout: zwei Karten (Bühne links, Werkzeugkasten rechts); über dem KI-Namen eine schwarze Limit-Blase. */
+/* Layout: zwei Karten (Bühne links, Werkzeugkasten rechts); im Kopf neben „No Limit“ eine schwarze Limit-Blase. */
 :root {
   --bg: #f5f5f7;
   --card: #ffffff;
@@ -16,12 +16,17 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px rgba(0, 0, 0, 0.06);
   --glass: rgba(255, 255, 255, 0.72);
   --scrim: rgba(0, 0, 0, 0.28);
-  /* Die Limit-Blase ist in beiden Modi schwarz, wie die Dynamic Island. */
-  --island: #0a0a0b;
-  --island-text: #f5f5f7;
-  --island-muted: rgba(235, 235, 245, 0.55);
-  --island-fill: rgba(255, 255, 255, 0.09);
-  --island-line: rgba(255, 255, 255, 0.12);
+  /* Limit-Blase: hell eine graue Insel, dunkel schwarz wie die Dynamic Island */
+  --island: rgba(234, 234, 239, 0.98);
+  --island-text: #1d1d1f;
+  --island-muted: rgba(60, 60, 67, 0.6);
+  --island-fill: rgba(0, 0, 0, 0.06);
+  --island-fill-hover: rgba(0, 0, 0, 0.1);
+  --island-line: rgba(0, 0, 0, 0.08);
+  --island-knob: #1d1d1f;
+  --island-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  --island-shadow-open: 0 18px 44px rgba(0, 0, 0, 0.14);
+  --island-label-shadow: none;
 
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --font-num: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -49,7 +54,16 @@
     --shadow: none;
     --glass: rgba(44, 44, 46, 0.72);
     --scrim: rgba(0, 0, 0, 0.5);
+    --island: #0a0a0b;
+    --island-text: #f5f5f7;
+    --island-muted: rgba(235, 235, 245, 0.55);
+    --island-fill: rgba(255, 255, 255, 0.09);
+    --island-fill-hover: rgba(255, 255, 255, 0.16);
     --island-line: rgba(255, 255, 255, 0.16);
+    --island-knob: #fff;
+    --island-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+    --island-shadow-open: 0 18px 48px rgba(0, 0, 0, 0.32);
+    --island-label-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     color-scheme: dark;
   }
 }
@@ -70,7 +84,16 @@
   --shadow: none;
   --glass: rgba(44, 44, 46, 0.72);
   --scrim: rgba(0, 0, 0, 0.5);
+  --island: #0a0a0b;
+  --island-text: #f5f5f7;
+  --island-muted: rgba(235, 235, 245, 0.55);
+  --island-fill: rgba(255, 255, 255, 0.09);
+  --island-fill-hover: rgba(255, 255, 255, 0.16);
   --island-line: rgba(255, 255, 255, 0.16);
+  --island-knob: #fff;
+  --island-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+  --island-shadow-open: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --island-label-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
 
@@ -151,8 +174,7 @@ button { font: inherit; color: inherit; }
   min-width: 0;
 }
 .stage {
-  position: sticky;
-  top: 20px;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -160,13 +182,15 @@ button { font: inherit; color: inherit; }
 }
 .side { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
 
+@media (min-width: 901px) and (min-height: 860px) {
+  .stage { position: sticky; top: 20px; }
+}
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); padding: 16px 16px 24px; gap: 16px; }
-  .stage { position: static; }
 }
 
 /* ---------- Bühne ---------- */
-.stage-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 32px; }
+.stage-head { position: relative; z-index: 30; display: flex; align-items: center; gap: 12px; min-height: 36px; }
 .brand { display: flex; align-items: center; gap: 0.45rem; font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
 .brand-mark { color: var(--accent); font-size: 1.15rem; }
 
@@ -186,7 +210,7 @@ button { font: inherit; color: inherit; }
   position: relative;
   display: grid;
   place-items: center;
-  height: 290px;
+  height: 330px;
   border-radius: 18px;
   overflow: hidden;
   user-select: none;
@@ -240,7 +264,10 @@ button { font: inherit; color: inherit; }
 
 .tap-hint {
   position: absolute;
-  bottom: 12px;
+  top: 14px;
+  left: 14px;
+  max-width: calc(100% - 170px);
+  text-align: left;
   margin: 0;
   font-size: 0.8rem;
   color: var(--muted);
@@ -366,9 +393,9 @@ button { font: inherit; color: inherit; }
 .segmented-small { flex: none; }
 .segmented-small button { padding: 0.2rem 0.65rem; font-size: 0.78rem; }
 .badge {
-  position: absolute;
-  top: 3px;
-  right: 6px;
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: 1px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -460,7 +487,7 @@ button { font: inherit; color: inherit; }
 .upgrade-name { font-weight: 600; font-size: 0.9rem; line-height: 1.25; }
 .upgrade-desc { font-size: 0.78rem; color: var(--muted); flex: 1; }
 .upgrade-effect { font-size: 0.75rem; font-weight: 600; color: var(--accent-ink); }
-.tile { position: relative; }
+.tile { position: relative; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(0, 0, 0, 0.12); }
 .tile-badge {
   position: absolute;
   right: -5px;
@@ -505,31 +532,37 @@ button { font: inherit; color: inherit; }
 .group .btn { background: var(--card); }
 .group .btn:hover:not(:disabled) { background: var(--fill-2); }
 
-/* ---------- Limit-Blase (über dem KI-Namen) ---------- */
-/* Container-Einheiten: Der Inhalt wird immer in voller Breite gesetzt, auch wenn die Blase zu ist. */
-.limits { position: relative; z-index: 30; height: 36px; margin-bottom: 6px; container-type: inline-size; }
+/* ---------- Limit-Blase (im Kopf neben „No Limit“) ---------- */
+.limits { position: relative; flex: none; width: 200px; height: 36px; }
 .island {
   position: absolute;
   left: 0;
   bottom: 0;
   display: flex;
   flex-direction: column-reverse; /* klappt nach oben auf, die Pille bleibt unten stehen */
-  width: 236px;
+  width: 200px;
   background: var(--island);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
   color: var(--island-text);
   border-radius: 18px;
-  box-shadow: 0 0 0 1px var(--island-line), 0 10px 28px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 1px var(--island-line), var(--island-shadow);
   overflow: hidden;
-  transition: width 0.5s var(--spring), border-radius 0.4s var(--ease), box-shadow 0.3s;
+  transition: width 0.5s var(--spring), left 0.5s var(--spring), border-radius 0.4s var(--ease), box-shadow 0.3s;
 }
 .island.down { top: 0; bottom: auto; flex-direction: column; }
-.island.open { width: min(440px, 100cqw); border-radius: 26px; box-shadow: 0 0 0 1px var(--island-line), 0 18px 48px rgba(0, 0, 0, 0.32); }
-.island.alert:not(.open) { width: min(340px, 100cqw); box-shadow: 0 0 0 1px var(--accent), 0 10px 28px rgba(217, 119, 87, 0.35); }
+.island.open {
+  left: var(--island-shift, 0px);
+  width: var(--island-open-w, 440px);
+  border-radius: 26px;
+  box-shadow: 0 0 0 1px var(--island-line), var(--island-shadow-open);
+}
+.island.alert:not(.open) { box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(217, 119, 87, 0.45); }
 .island-pill {
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 10px;
   width: 100%;
   height: 36px;
@@ -540,7 +573,6 @@ button { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.island-mark { color: var(--accent); font-size: 1rem; }
 .pill-limits { display: flex; gap: 12px; }
 .pill-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .pill-item.off { color: var(--island-muted); }
@@ -555,7 +587,7 @@ button { font: inherit; color: inherit; }
 .island-inner { min-height: 0; overflow: hidden; }
 .island.open.scroll .island-inner { max-height: var(--island-max); overflow-y: auto; scrollbar-width: thin; }
 .island-content {
-  width: min(440px, 100cqw);
+  width: var(--island-open-w, 440px);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -600,7 +632,7 @@ button { font: inherit; color: inherit; }
   inset: 0 auto 0 0;
   width: 0;
   background: linear-gradient(90deg, rgba(217, 119, 87, 0.55), var(--accent));
-  box-shadow: 2px 0 0 #fff;
+  box-shadow: 2px 0 0 var(--island-knob);
 }
 .scrub.dragging .scrub-fill { transition: none; }
 .scrub-fill { transition: width 0.25s var(--ease); }
@@ -614,7 +646,7 @@ button { font: inherit; color: inherit; }
   transform: translateY(-50%);
   font: 600 0.85rem var(--font-num);
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: var(--island-label-shadow);
   pointer-events: none;
 }
 .scrub-scale {
@@ -657,7 +689,7 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
 }
-.nl-chip:hover { background: rgba(255, 255, 255, 0.16); }
+.nl-chip:hover { background: var(--island-fill-hover); }
 .nl-chip:active { transform: scale(0.96); }
 .nl-ghost { background: transparent; color: var(--island-muted); }
 
@@ -791,12 +823,255 @@ button { font: inherit; color: inherit; }
 .modal-actions .primary { font-weight: 600; }
 .modal-actions button:hover { background: var(--fill); }
 
+/* ---------- Kampf-Würze: Arena-Anzeigen ---------- */
+.arena { container-type: inline-size; }
+.combo, .launch, .throttle {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font: 700 0.78rem var(--font-num);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.combo { top: 10px; left: 10px; flex-wrap: wrap; max-width: 150px; background: var(--accent-soft); color: var(--accent-ink); overflow: hidden; }
+.combo-mult { opacity: 0.8; }
+.combo-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
+.combo-fill { display: block; height: 100%; background: var(--accent); }
+.arena-corner { position: absolute; z-index: 3; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.arena-corner .launch { position: static; }
+.launch { background: var(--fill); color: var(--text); }
+.launch .icon { color: var(--accent); }
+.launch.urgent { background: var(--danger); color: #fff; animation: urgent 0.8s ease-in-out infinite; }
+.launch.urgent .icon { color: #fff; }
+@keyframes urgent { 50% { transform: scale(1.06); } }
+.throttle { top: 48px; left: 50%; transform: translateX(-50%); background: var(--danger); color: #fff; }
+
+/* Schwachstelle: hier landen kritische Treffer */
+.weakspot {
+  position: absolute;
+  z-index: 2;
+  width: calc(var(--weak-size, 0.21) * 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18), 0 0 16px 3px hsl(var(--hue, 20) 95% 62% / 0.75), inset 0 0 10px hsl(var(--hue, 20) 95% 70% / 0.6);
+  pointer-events: none;
+  animation: weakPulse 1.2s ease-in-out infinite;
+  transition: left 0.25s var(--ease), top 0.25s var(--ease);
+}
+.weakspot::after {
+  content: "";
+  position: absolute;
+  inset: 34%;
+  border-radius: 50%;
+  background: #fff;
+}
+.weakspot.pop { animation: weakPop 0.35s var(--spring), weakPulse 1.2s ease-in-out 0.35s infinite; }
+@keyframes weakPulse { 50% { transform: translate(-50%, -50%) scale(0.86); } }
+@keyframes weakPop { from { transform: translate(-50%, -50%) scale(0.2); opacity: 0; } }
+
+/* Eigenschaften */
+.enemy.trait-evasive { animation: evade 6.5s ease-in-out infinite; }
+@keyframes evade {
+  0%, 100% { transform: translate(0, 0); }
+  22% { transform: translate(calc(50cqw - 50% - 12px), -14px); }
+  46% { transform: translate(calc(-25cqw + 25%), 16px); }
+  70% { transform: translate(calc(-50cqw + 50% + 12px), -10px); }
+  86% { transform: translate(calc(20cqw - 20%), 12px); }
+}
+.enemy.trait-armored::after, .enemy.trait-regen::after {
+  content: "";
+  position: absolute;
+  inset: 3%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.enemy.trait-armored::after { border: 3px solid rgba(150, 160, 180, 0.6); box-shadow: inset 0 0 18px rgba(150, 160, 180, 0.35), 0 0 0 6px rgba(150, 160, 180, 0.12); }
+.enemy.trait-regen::after { box-shadow: 0 0 26px 6px rgba(52, 199, 89, 0.35); animation: regenPulse 1.6s ease-in-out infinite; }
+@keyframes regenPulse { 50% { box-shadow: 0 0 34px 10px rgba(52, 199, 89, 0.15); } }
+.enemy.throttled .glyph { filter: grayscale(1) opacity(0.5); }
+
+.traits { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: -4px 0 2px; font-size: 0.8rem; }
+.trait {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--card);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+.trait .icon { font-size: 0.85rem; }
+.trait-desc { color: var(--muted); }
+
+/* Treffer-Effekte */
+.arena.shake { animation: shake 0.28s var(--ease); }
+@keyframes shake {
+  20% { transform: translate(-5px, 2px); }
+  40% { transform: translate(4px, -3px); }
+  60% { transform: translate(-3px, 1px); }
+  80% { transform: translate(2px, -1px); }
+}
+.arena.flash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle at 50% 46%, rgba(217, 119, 87, 0.45), transparent 62%);
+  pointer-events: none;
+  animation: flash 0.6s var(--ease) forwards;
+}
+@keyframes flash { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.3); } }
+.popup.crit { color: var(--accent); font-size: 1.45rem; text-shadow: 0 2px 12px var(--accent-soft); }
+.popup.blocked { color: var(--danger); font-size: 1rem; }
+.shard {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  pointer-events: none;
+  animation: shard 0.65s var(--ease) forwards;
+}
+@keyframes shard {
+  from { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; }
+  to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3) rotate(160deg); opacity: 0; }
+}
+
+/* ---------- Fähigkeiten: runde Knöpfe im Angriffsfeld ---------- */
+.skill-dock {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  transform: translateX(-50%);
+}
+.dock-skill {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--skill-bg);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.15s var(--spring), filter 0.2s;
+}
+.dock-skill:hover { transform: translateY(-2px); }
+.dock-skill:active { transform: scale(0.92); }
+/* Abklingzeit als ablaufender Kreis */
+.dock-skill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(rgba(0, 0, 0, 0.45) calc(var(--cd, 0) * 360deg), transparent 0);
+}
+.dock-skill.locked { background: var(--fill); color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--fill-2); }
+.dock-skill.locked .dock-icon { opacity: 0.45; }
+.dock-skill.cooling { filter: saturate(0.3); }
+.dock-skill.active {
+  box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--accent), 0 6px 18px rgba(217, 119, 87, 0.45);
+  animation: dockPulse 1s ease-in-out infinite;
+}
+@keyframes dockPulse { 50% { transform: scale(1.07); } }
+.dock-icon { position: relative; display: grid; }
+.dock-skill.cooling .dock-icon, .dock-skill.active .dock-icon { opacity: 0.3; }
+.dock-time {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 700 0.85rem var(--font-num);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.dock-level {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 0 0 1.5px var(--fill-2);
+  font: 700 0.6rem/17px var(--font-num);
+  text-align: center;
+}
+.dock-level:empty { display: none; }
+
+/* Tab „Fähigkeiten“ */
+.skill-pips { display: flex; gap: 3px; margin-top: 5px; }
+.skill-cost { display: inline-flex; align-items: center; gap: 0.25rem; }
+.skill-pips i { width: 14px; height: 4px; border-radius: 2px; background: var(--fill-2); }
+.skill-pips i.on { background: var(--accent); }
+
+/* ---------- Aufträge ---------- */
+.mission { cursor: default; }
+.mission:hover { background: transparent !important; }
+.mission-bar { display: block; height: 5px; margin: 5px 0 3px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.mission-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.3s var(--ease); }
+
+/* ---------- Schalter ---------- */
+.switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: var(--fill-2);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s var(--spring);
+}
+.switch[aria-checked="true"] { background: #34c759; }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+
 @media (max-width: 520px) {
   .stats-row { grid-template-columns: 1fr 1fr; }
   .stat-main { grid-column: 1 / -1; }
-  .arena { height: 250px; }
+  .arena { height: 290px; }
+  .skill-dock { gap: 6px; bottom: 10px; }
+  .dock-skill { width: 40px; height: 40px; font-size: 1.1rem; }
+  .segmented button { font-size: 0.76rem; padding: 0.4rem 0.2rem; }
   .enemy { width: 190px; height: 190px; }
   .stage { padding: 16px; }
+}
+
+@media (max-width: 400px) {
+  .limits, .island { width: 184px; }
+  .island-pill { font-size: 0.74rem; gap: 8px; padding: 0 10px; }
+  .pill-limits { gap: 9px; }
+  .brand { font-size: 0.98rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
