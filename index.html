@@ -2,191 +2,219 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>No Limit</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✳️</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d97757' stroke-width='2.4' stroke-linecap='round'><path d='M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4'/></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand"><span class="brand-star">✳</span> No Limit</div>
-    <nav class="limit-chips" aria-label="Deine Claude-Limits">
-      <a href="#limits" id="chip-session" class="chip" hidden></a>
-      <a href="#limits" id="chip-weekly" class="chip" hidden></a>
-      <a href="#limits" id="chip-setup" class="chip chip-muted">⏰ Limits eintragen</a>
-    </nav>
-  </header>
+  <!-- Notch: zugeklappt die Countdowns, aufgeklappt die Limit-Einstellungen -->
+  <div id="notch" class="notch">
+    <button id="notch-pill" class="notch-pill" aria-expanded="false" aria-controls="notch-panel">
+      <span class="notch-mark" data-icon="token"></span>
+      <span id="pill-limits" class="pill-limits">
+        <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-session" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-session-text">5 Std.</span></span>
+        <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-weekly" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-weekly-text">Woche</span></span>
+      </span>
+      <span id="pill-alert" class="pill-alert" hidden></span>
+    </button>
+    <div id="notch-panel" class="notch-panel">
+      <div class="notch-inner">
+        <div class="notch-content">
+          <section class="nl-section" aria-label="5-Stunden-Limit">
+            <div class="nl-head">
+              <span class="nl-title">Aktuelle Sitzung</span>
+              <span id="session-sub" class="nl-sub">nicht eingestellt</span>
+            </div>
+            <div id="session-big" class="nl-big off">0:00:00</div>
+            <div id="session-scrub" class="scrub" role="slider" tabindex="0" aria-label="Zeit bis zum Reset des 5-Stunden-Limits" aria-valuemin="0" aria-valuemax="300">
+              <div class="scrub-ticks scrub-ticks-5"></div>
+              <div class="scrub-fill"></div>
+              <span class="scrub-label"></span>
+            </div>
+            <div class="scrub-scale"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5 Std.</span></div>
+            <div class="nl-actions">
+              <button id="session-full" class="nl-chip">Gerade erreicht · 5 Std.</button>
+              <button id="session-clear" class="nl-chip nl-ghost">Aus</button>
+            </div>
+          </section>
 
-  <div id="limit-banner" class="banner" hidden>
-    <span id="banner-text"></span>
-    <button id="banner-close" class="btn">Alles klar</button>
+          <section class="nl-section" aria-label="Wöchentliches Limit">
+            <div class="nl-head">
+              <span class="nl-title">Wöchentliches Limit</span>
+              <span id="weekly-sub" class="nl-sub">nicht eingestellt</span>
+            </div>
+            <div id="weekly-big" class="nl-big off">0 T 00:00:00</div>
+            <div id="weekly-days" class="days" role="radiogroup" aria-label="Tag des Wochen-Resets"></div>
+            <div id="weekly-scrub" class="scrub" role="slider" tabindex="0" aria-label="Uhrzeit des Wochen-Resets" aria-valuemin="0" aria-valuemax="1425">
+              <div class="scrub-ticks scrub-ticks-4"></div>
+              <div class="scrub-fill"></div>
+              <span class="scrub-label"></span>
+            </div>
+            <div class="scrub-scale"><span>0</span><span>6</span><span>12</span><span>18</span><span>24 Uhr</span></div>
+            <div class="nl-actions">
+              <span class="nl-hint">Ziehen, wischen oder scrollen</span>
+              <button id="weekly-clear" class="nl-chip nl-ghost">Aus</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <section class="hud" aria-label="Status">
-    <div class="hud-item">
-      <span class="hud-label">🪙 Tokens</span>
-      <span id="tokens" class="hud-value">0</span>
-      <span id="tps" class="hud-sub">0 pro Sek.</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">⚔️ Schaden/Sek.</span>
-      <span id="dps" class="hud-value">0</span>
-      <span id="click-dmg" class="hud-sub">+1 pro Angriff</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">🌊 Welle</span>
-      <span id="wave" class="hud-value">1</span>
-      <span id="wave-sub" class="hud-sub">Gegner 1/10</span>
-    </div>
-    <div class="hud-item hud-week" title="Fortschritt zum Boss dieser Woche">
-      <div class="week-head">
-        <span class="hud-label">👹 Wöchentliches Limit</span>
-        <span id="week-text" class="hud-sub">0 / 500 Siege</span>
-      </div>
-      <div id="week-bar" class="week-bar"></div>
-      <div class="week-foot">
-        <span id="week-reset" class="hud-sub"></span>
-        <button id="boss-btn" class="btn btn-small btn-primary" hidden>Boss herausfordern</button>
-      </div>
-    </div>
-    <button id="daily-btn" class="daily-btn" hidden>🎁 Tagesbonus abholen</button>
-  </section>
+  <main class="app">
+    <section class="card stage">
+      <header class="stage-head">
+        <div class="brand"><span class="brand-mark" data-icon="token"></span>No Limit</div>
+        <button id="daily-btn" class="pill-btn accent" hidden><span data-icon="gift"></span>Tagesbonus</button>
+      </header>
 
-  <main class="layout">
-    <section class="panel panel-main">
-      <div id="arena" class="arena">
-        <div class="arena-top">
-          <div id="enemy-name" class="enemy-name"></div>
-          <div class="meter-head">
-            <span id="meter-label" class="meter-label">5-Stunden-Limit</span>
-            <span id="meter-used" class="meter-used">0 % verbraucht</span>
-          </div>
-          <div class="meter">
-            <div id="meter-ghost" class="meter-ghost"></div>
-            <div id="meter-fill" class="meter-fill"></div>
-          </div>
-          <div class="meter-foot">
-            <span id="meter-left"></span>
-            <span id="hp-text" class="muted"></span>
-          </div>
+      <div class="stats-row">
+        <div class="stat stat-main">
+          <span class="stat-label">Tokens</span>
+          <span id="tokens" class="stat-value">0</span>
+          <span id="tps" class="stat-sub"></span>
         </div>
-        <button id="enemy" class="enemy" aria-label="Gegner angreifen">
-          <span class="sprite-wrap"><span id="enemy-sprite" class="sprite"></span></span>
+        <div class="stat">
+          <span class="stat-label">Schaden/s</span>
+          <span id="dps" class="stat-value">0</span>
+          <span id="click-dmg" class="stat-sub"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Welle</span>
+          <span id="wave" class="stat-value">1</span>
+          <span id="wave-sub" class="stat-sub"></span>
+        </div>
+      </div>
+
+      <div id="arena" class="arena">
+        <button id="enemy" class="enemy" aria-label="KI angreifen">
+          <span class="glyph-float"><span id="glyph" class="glyph"></span></span>
         </button>
         <div id="popups" class="popups"></div>
+        <p id="tap-hint" class="tap-hint">Tippe auf die KI</p>
       </div>
 
-      <button id="attack-btn" class="attack-btn">
-        <span>⚔️ Angreifen</span>
-        <span id="attack-value" class="attack-value">+1 Schaden</span>
-      </button>
-      <button id="retreat-btn" class="btn btn-small retreat-btn" hidden>Rückzug aus dem Bosskampf</button>
+      <div class="enemy-info">
+        <div class="enemy-title">
+          <span id="enemy-name" class="enemy-name"></span>
+          <span id="enemy-tag" class="tag"></span>
+        </div>
+        <p id="enemy-quip" class="enemy-quip"></p>
+        <div class="meter-head">
+          <span id="meter-label">5-Stunden-Limit</span>
+          <span id="meter-used" class="meter-used">0 % verbraucht</span>
+        </div>
+        <div class="meter">
+          <div id="meter-ghost" class="meter-ghost"></div>
+          <div id="meter-fill" class="meter-fill"></div>
+        </div>
+        <div class="meter-foot">
+          <span id="meter-left"></span>
+          <span id="hp-text"></span>
+        </div>
+      </div>
 
       <div id="buff" class="buff" hidden></div>
-      <p id="ticker" class="ticker"></p>
 
-      <h2>Statistik</h2>
-      <dl id="stats" class="stats"></dl>
-    </section>
-
-    <section class="panel panel-shop">
-      <h2>Upgrades</h2>
-      <div id="upgrades" class="upgrades"></div>
-      <p id="upgrades-empty" class="muted">Noch keine Upgrades verfügbar. Weiter angreifen!</p>
-
-      <div class="shop-head">
-        <h2>Helfer</h2>
-        <div class="buy-amount" role="group" aria-label="Kaufmenge">
-          <button class="btn btn-small" data-amount="1">×1</button>
-          <button class="btn btn-small" data-amount="10">×10</button>
-          <button class="btn btn-small" data-amount="max">Max</button>
+      <div class="week">
+        <div class="meter-head">
+          <span>Wochenboss</span>
+          <span id="week-text" class="meter-used"></span>
+        </div>
+        <div id="week-bar" class="week-bar" title="Fortschritt zum Boss dieser Woche"></div>
+        <div class="week-foot">
+          <span id="week-reset"></span>
+          <button id="boss-btn" class="pill-btn accent" hidden>Boss herausfordern</button>
+          <button id="retreat-btn" class="pill-btn" hidden>Rückzug</button>
         </div>
       </div>
-      <div id="generators" class="generators"></div>
     </section>
 
-    <section class="panel panel-side">
-      <section id="limits" class="limits-card">
-        <h2>⏰ Deine Claude-Limits</h2>
-
-        <div class="limit-row">
-          <div class="meter-head">
-            <span class="meter-label">Aktuelle Sitzung · 5 Std.</span>
-            <span id="session-status" class="meter-used muted">nicht eingetragen</span>
-          </div>
-          <div class="meter"><div id="session-fill" class="meter-fill"></div></div>
-          <div id="session-form" class="limit-form">
-            <label for="session-time" class="small muted">Zurücksetzung um</label>
-            <input type="time" id="session-time">
-            <button id="session-set" class="btn btn-small">Speichern</button>
-          </div>
-          <div id="session-active" class="limit-active" hidden>
-            <span id="session-countdown" class="limit-countdown"></span>
-            <button id="session-clear" class="btn btn-small btn-ghost">Entfernen</button>
-          </div>
-        </div>
-
-        <div class="limit-row">
-          <div class="meter-head">
-            <span class="meter-label">Wöchentliches Limit</span>
-            <span id="weekly-status" class="meter-used muted">nicht eingetragen</span>
-          </div>
-          <div class="meter"><div id="weekly-fill" class="meter-fill"></div></div>
-          <div id="weekly-form" class="limit-form">
-            <label for="weekly-datetime" class="small muted">Zurücksetzung am</label>
-            <input type="datetime-local" id="weekly-datetime">
-            <button id="weekly-set" class="btn btn-small">Speichern</button>
-          </div>
-          <div id="weekly-active" class="limit-active" hidden>
-            <span id="weekly-countdown" class="limit-countdown"></span>
-            <button id="weekly-clear" class="btn btn-small btn-ghost">Entfernen</button>
-          </div>
-        </div>
-
-        <p class="muted small">
-          Die Zeiten zeigt dir Claude, wenn du ein Limit erreichst, und unter Einstellungen → Nutzung.
-          Nach deinem Wochenlimit richtet sich auch die Boss-Woche im Spiel.
-        </p>
-      </section>
-
-      <h2>Kontext komprimieren</h2>
-      <p class="muted">
-        Setzt Tokens, Helfer, Upgrades und Welle zurück. Dafür erhältst du
-        <strong>Erkenntnisse</strong>: Jede gibt dauerhaft <strong>+10 %</strong> Schaden.
-      </p>
-      <p>Erkenntnisse: <strong id="insights">0</strong> · beim Komprimieren: <strong id="insights-pending">+0</strong></p>
-      <button id="prestige-btn" class="btn btn-wide" disabled>Kontext komprimieren</button>
-      <p id="prestige-hint" class="muted small"></p>
-
-      <details class="howto">
-        <summary>So funktioniert's</summary>
-        <ul>
-          <li><strong>Angreifen</strong> oder auf den Gegner tippen macht Schaden. Jeder Schadenspunkt bringt Tokens, jeder Sieg zusätzlich Beute.</li>
-          <li><strong>Helfer</strong> kämpfen automatisch, auch bis zu 12 Stunden, während du weg bist.</li>
-          <li><strong>Limit-Leiste:</strong> Jeder Gegner hat ein 5-Stunden-Limit als Lebensleiste. Dein Schaden verbraucht es, bei 100 % ist der Gegner besiegt.</li>
-          <li><strong>Wellen:</strong> 10 Gegner pro Welle, der zehnte ist ein Anführer mit dreifachen HP. Jede Welle bringt +2 % Tokens.</li>
-          <li><strong>Wochenboss:</strong> Jeder Sieg füllt die Wochenleiste. Jede Etappe bringt eine Belohnung, bei 100 % erscheint der Boss „Das Wochenlimit“. Montags beginnt eine neue Woche.</li>
-          <li><strong>💡 Geistesblitze</strong> tauchen zufällig auf. Schnell anklicken!</li>
-        </ul>
-      </details>
-
-      <h2>Erfolge <span id="ach-count" class="muted"></span></h2>
-      <p class="muted small">Jeder Erfolg gibt +1 % Schaden.</p>
-      <div id="achievements" class="achievements"></div>
-
-      <h2>Spielstand</h2>
-      <div class="save-buttons">
-        <button id="export-btn" class="btn btn-small">Exportieren</button>
-        <button id="import-btn" class="btn btn-small">Importieren</button>
-        <button id="reset-btn" class="btn btn-small btn-danger">Alles löschen</button>
+    <section class="card side">
+      <div class="segmented" role="tablist" aria-label="Bereiche">
+        <button role="tab" data-tab="helpers" aria-selected="true">Helfer</button>
+        <button role="tab" data-tab="upgrades" aria-selected="false">Upgrades<span id="upgrade-badge" class="badge" hidden></span></button>
+        <button role="tab" data-tab="achievements" aria-selected="false">Erfolge</button>
+        <button role="tab" data-tab="more" aria-selected="false">Mehr</button>
       </div>
-      <p class="muted small">Wird automatisch alle 10 Sekunden im Browser gespeichert.</p>
+
+      <div id="tab-helpers" class="tab" role="tabpanel">
+        <div class="tab-head">
+          <span class="muted small">Helfer greifen automatisch an</span>
+          <div class="segmented segmented-small" role="group" aria-label="Kaufmenge">
+            <button data-amount="1">1×</button>
+            <button data-amount="10">10×</button>
+            <button data-amount="max">Max</button>
+          </div>
+        </div>
+        <div id="generators" class="list"></div>
+      </div>
+
+      <div id="tab-upgrades" class="tab" role="tabpanel" hidden>
+        <div id="upgrades" class="upgrades"></div>
+        <p id="upgrades-empty" class="empty">Noch keine Upgrades verfügbar. Weiter tippen!</p>
+      </div>
+
+      <div id="tab-achievements" class="tab" role="tabpanel" hidden>
+        <div class="tab-head">
+          <span class="muted small">Jeder Erfolg gibt +1 % Schaden</span>
+          <span id="ach-count" class="muted small"></span>
+        </div>
+        <div id="achievements" class="list"></div>
+      </div>
+
+      <div id="tab-more" class="tab" role="tabpanel" hidden>
+        <div class="group">
+          <h2>Kontext komprimieren</h2>
+          <p class="muted small">
+            Setzt Tokens, Helfer, Upgrades und Welle zurück. Dafür gibt es Erkenntnisse,
+            jede dauerhaft +10 % Schaden.
+          </p>
+          <div class="kv"><span>Erkenntnisse</span><strong id="insights">0</strong></div>
+          <div class="kv"><span>Beim Komprimieren</span><strong id="insights-pending">+0</strong></div>
+          <button id="prestige-btn" class="btn btn-wide" disabled>Kontext komprimieren</button>
+          <p id="prestige-hint" class="muted small"></p>
+        </div>
+
+        <div class="group">
+          <h2>Statistik</h2>
+          <dl id="stats" class="stats"></dl>
+        </div>
+
+        <div class="group">
+          <h2>So funktioniert's</h2>
+          <ul class="howto">
+            <li>Tippe auf die KI. Jeder Schadenspunkt bringt Tokens, jeder Sieg zusätzlich Beute.</li>
+            <li>Die Lebensleiste ist ein 5-Stunden-Limit: Dein Schaden verbraucht es, bei 100 % ist die KI besiegt.</li>
+            <li>10 KIs pro Welle, die zehnte ist eine Ultra-Version mit mehr HP. Jede KI ist etwas stärker als die vorige.</li>
+            <li>Jeder Sieg füllt die Wochenleiste. Bei 100 % erscheint der Boss „Das Wochenlimit“.</li>
+            <li>Oben in der Notch stellst du deine echten Claude-Limits ein. Die Boss-Woche richtet sich nach deinem Wochen-Reset.</li>
+            <li>Helfer kämpfen bis zu 12 Stunden weiter, während du weg bist.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h2>Spielstand</h2>
+          <div class="save-buttons">
+            <button id="export-btn" class="btn">Exportieren</button>
+            <button id="import-btn" class="btn">Importieren</button>
+            <button id="reset-btn" class="btn btn-danger">Alles löschen</button>
+          </div>
+          <p class="muted small">Wird automatisch alle 10 Sekunden im Browser gespeichert.</p>
+        </div>
+      </div>
     </section>
   </main>
 
-  <button id="golden" class="golden" hidden aria-label="Geistesblitz">💡</button>
+  <button id="golden" class="golden" hidden aria-label="Geistesblitz einsammeln"></button>
   <div id="toasts" class="toasts" aria-live="polite"></div>
-  <div id="overlay" class="overlay" hidden><div id="overlay-text" class="overlay-text"></div></div>
+  <div id="overlay" class="overlay" hidden>
+    <div class="overlay-card">
+      <span id="overlay-glyph" class="overlay-glyph"></span>
+      <span id="overlay-text" class="overlay-text"></span>
+    </div>
+  </div>
 
   <div id="modal" class="modal" hidden>
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -194,8 +222,8 @@
       <p id="modal-text"></p>
       <textarea id="modal-input" class="modal-input" rows="4" spellcheck="false" hidden></textarea>
       <div class="modal-actions">
-        <button id="modal-cancel" class="btn" hidden>Abbrechen</button>
-        <button id="modal-ok" class="btn btn-primary">Weiter</button>
+        <button id="modal-cancel" hidden>Abbrechen</button>
+        <button id="modal-ok" class="primary">Weiter</button>
       </div>
     </div>
   </div>
