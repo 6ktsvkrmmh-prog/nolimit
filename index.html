@@ -135,7 +135,7 @@
       <div class="segmented" role="tablist" aria-label="Bereiche">
         <button role="tab" data-tab="helpers" aria-selected="true">Helfer</button>
         <button role="tab" data-tab="upgrades" aria-selected="false">Upgrades<span id="upgrade-badge" class="badge" hidden></span></button>
-        <button role="tab" data-tab="achievements" aria-selected="false">Erfolge</button>
+        <button role="tab" data-tab="achievements" aria-selected="false">Sammlung</button>
         <button role="tab" data-tab="more" aria-selected="false">Mehr</button>
       </div>
 
@@ -157,6 +157,11 @@
       </div>
 
       <div id="tab-achievements" class="tab" role="tabpanel" hidden>
+        <div class="tab-head">
+          <span class="muted small">KI-Sammlung</span>
+          <span id="dex-count" class="muted small"></span>
+        </div>
+        <div id="dex" class="dex"></div>
         <div class="tab-head">
           <span class="muted small">Jeder Erfolg gibt +1 % Schaden</span>
           <span id="ach-count" class="muted small"></span>
@@ -228,6 +233,7 @@
     </div>
   </div>
 
+  <script src="logos.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

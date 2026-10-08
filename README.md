@@ -22,8 +22,9 @@ Branch und Ordner `/ (root)` auswählen.
 ## Features
 
 - **Tippen statt Knopf:** Tippe direkt auf die KI. Jeder Schadenspunkt bringt Tokens, jeder Sieg zusätzlich Beute.
-- **Eigene KI-Symbole:** Jede KI ist ein generiertes Vektor-Symbol (Strahlen, Blüten, Orbits,
-  neuronale Netze, Prismen, Ringe, Pixel-Matrizen) mit ausgedachtem Modellnamen wie „Overfit 3.4“.
+- **64 ausgedachte KIs mit eigenen Logos:** 32 Logo-Bauarten im Stil echter KI-Marken (Funkeln,
+  Strahlenkranz, Knoten, Unendlichkeitsband, Orb, Blende, Sprechblase, Flamme, Schild, Planet …),
+  jede KI mit eigener Farbnuance und Variation. Entdeckte KIs landen in der **Sammlung**.
 - **Limit-Leiste als Lebensanzeige:** „5-Stunden-Limit · 37 % verbraucht · noch 3 Std. 9 Min.“.
   Das ist reine Optik, die Zeit steht für die HP.
 - **Wellen:** 10 KIs pro Welle, jede etwas stärker als die vorige; die zehnte ist eine Ultra-Version.
@@ -33,7 +34,8 @@ Branch und Ordner `/ (root)` auswählen.
   Restzeit des 5-Stunden-Limits und Uhrzeit des Wochen-Resets per Ziehen einstellen, Tage wischen,
   Feinjustieren mit Mausrad oder Trackpad. Zugeklappt laufen beide Countdowns weiter; ist ein Limit
   zurück, meldet sich die Notch. Nach dem Wochen-Reset richtet sich auch die Boss-Woche im Spiel.
-- **8 Helfer**, Upgrades, Geistesblitze, Kontext komprimieren (Prestige), 20 Erfolge, Tagesbonus
+- **8 Helfer** mit je fünf eigenen Upgrades (z. B. „Pair-Debugging“, „Wasserkühlung“, „Kardaschow-Stufe II“),
+  Geistesblitze, Kontext komprimieren (Prestige), 22 Erfolge, Tagesbonus
 - **Offline-Fortschritt** bis zu 12 Stunden; eine zurückgestellte Systemuhr wird erkannt.
 - Hell- und Dunkelmodus, automatisches Speichern, Export/Import des Spielstands
 
@@ -43,4 +45,5 @@ Branch und Ordner `/ (root)` auswählen.
 |--------------|-------------------------------------------|
 | `index.html` | Seitenstruktur                            |
 | `style.css`  | Design                                    |
+| `logos.js`   | Generator für die KI-Logos                |
 | `game.js`    | Spiellogik, Balancing (oben in der Datei) |

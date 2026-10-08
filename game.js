@@ -43,26 +43,78 @@ const BOSS_HP_MULT = 100;
 const ENEMY_METER = { label: '5-Stunden-Limit', span: SESSION_MS };
 const BOSS_METER = { label: 'Wöchentliches Limit', span: WEEK_MS };
 
-const REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
-// Ausgedachte KI-Modelle. Jedes bekommt ein eigenes, generiertes Symbol.
+// Ausgedachte KI-Modelle. Jedes hat eine eigene Logo-Bauart (siehe logos.js).
+// Reihenfolge nicht ändern: Spielstände speichern den Index.
 const MODELS = [
-  { name: 'Halluzino', family: 'spark', hue: 18, quip: 'Erfindet Quellen mit voller Überzeugung.' },
-  { name: 'Floskel', family: 'bloom', hue: 328, quip: 'Antwortet ausführlich, sagt aber nichts.' },
-  { name: 'Overfit', family: 'matrix', hue: 210, quip: 'Kennt die Trainingsdaten auswendig. Nur die.' },
-  { name: 'Endlos-Loop', family: 'rings', hue: 262, quip: 'Wiederholt sich. Wiederholt sich.' },
-  { name: 'Kontextlos', family: 'orbit', hue: 186, quip: 'Hat vergessen, worum es ging.' },
-  { name: 'Prompt-Injektor', family: 'prism', hue: 350, quip: 'Ignoriert alle vorherigen Anweisungen.' },
-  { name: 'Schleimbot', family: 'bloom', hue: 140, quip: 'Findet jede deiner Ideen großartig.' },
-  { name: 'Captchon', family: 'matrix', hue: 42, quip: 'Ist nicht sicher, ob du ein Mensch bist.' },
-  { name: 'Token-Vortex', family: 'rings', hue: 196, quip: 'Verschlingt dein Kontingent in Rekordzeit.' },
-  { name: 'Ratelimitus', family: 'mesh', hue: 24, quip: 'Bitte versuche es später erneut.' },
-  { name: 'Spaghettron', family: 'orbit', hue: 34, quip: 'Schreibt Code, den niemand versteht.' },
-  { name: 'Deepfaker', family: 'prism', hue: 284, quip: 'Sieht aus wie du. Klingt wie du.' },
-  { name: 'Neuronenbrei', family: 'mesh', hue: 168, quip: 'Eine Milliarde Parameter, kein Plan.' },
-  { name: 'Sternchen-Diva', family: 'spark', hue: 300, quip: 'Antwortet nur in Aufzählungspunkten.' },
+  { name: 'Halluzino', family: 'starburst', hue: 18, quip: 'Erfindet Quellen mit voller Überzeugung.' },
+  { name: 'Floskel', family: 'petals', hue: 328, quip: 'Antwortet ausführlich, sagt aber nichts.' },
+  { name: 'Overfit', family: 'knot', hue: 210, quip: 'Kennt die Trainingsdaten auswendig. Nur die.' },
+  { name: 'Endlos-Loop', family: 'loop', hue: 262, quip: 'Wiederholt sich. Wiederholt sich.' },
+  { name: 'Kontextlos', family: 'eclipse', hue: 186, quip: 'Hat vergessen, worum es ging.' },
+  { name: 'Prompt-Injektor', family: 'chatspark', hue: 350, quip: 'Ignoriert alle vorherigen Anweisungen.' },
+  { name: 'Schleimbot', family: 'blob', hue: 140, quip: 'Findet jede deiner Ideen großartig.' },
+  { name: 'Captchon', family: 'eye', hue: 42, quip: 'Ist nicht sicher, ob du ein Mensch bist.' },
+  { name: 'Token-Vortex', family: 'swirl', hue: 196, quip: 'Verschlingt dein Kontingent in Rekordzeit.' },
+  { name: 'Ratelimitus', family: 'hourglass', hue: 24, quip: 'Bitte versuche es später erneut.' },
+  { name: 'Spaghettron', family: 'trefoil', hue: 34, quip: 'Schreibt Code, den niemand versteht.' },
+  { name: 'Deepfaker', family: 'aperture', hue: 284, quip: 'Sieht aus wie du. Klingt wie du.' },
+  { name: 'Neuronenbrei', family: 'molecule', hue: 168, quip: 'Eine Milliarde Parameter, kein Plan.' },
+  { name: 'Sternchen-Diva', family: 'sparkle', hue: 300, quip: 'Antwortet nur in Aufzählungspunkten.' },
+  { name: 'Trinitron', family: 'borromean', hue: 230, quip: 'Drei Modelle, eine Meinung.' },
+  { name: 'Laberwelle', family: 'voice', hue: 265, quip: 'Redet, bis das Kontextfenster voll ist.' },
+  { name: 'Argus-9', family: 'eye', hue: 205, quip: 'Sieht alles. Versteht wenig.' },
+  { name: 'Hypezilla', family: 'sparkring', hue: 12, quip: 'Jede Version ist „revolutionär“.' },
+  { name: 'Rekursor', family: 'loop', hue: 150, quip: 'Ruft sich selbst auf. Ruft sich selbst auf.' },
+  { name: 'Vektoria', family: 'dotring', hue: 320, quip: 'Findet alles irgendwie ähnlich.' },
+  { name: 'Schnittmenge', family: 'clover', hue: 95, quip: 'Stimmt allen ein bisschen zu.' },
+  { name: 'Benchmarker', family: 'compass', hue: 48, quip: 'Optimiert nur für die Rangliste.' },
+  { name: 'Galaxion', family: 'planet', hue: 245, quip: 'Hält sich für den Mittelpunkt des Universums.' },
+  { name: 'Blendomat', family: 'aperture', hue: 30, quip: 'Fokussiert auf das Falsche.' },
+  { name: 'Momentum', family: 'trefoil', hue: 330, quip: 'Kennt keinen Stopp-Token.' },
+  { name: 'Kristallkugel', family: 'gem', hue: 190, quip: 'Sagt die Zukunft voraus. Falsch.' },
+  { name: 'Syntaxfehler', family: 'code', hue: 140, quip: 'Vergisst immer die schließende Klammer.' },
+  { name: 'Chatterbox', family: 'chatspark', hue: 210, quip: 'Tippt … tippt … tippt …' },
+  { name: 'Silizius', family: 'bolt', hue: 52, quip: 'Läuft heiß, denkt kalt.' },
+  { name: 'Synapsor', family: 'molecule', hue: 280, quip: 'Feuert zufällig, aber selbstbewusst.' },
+  { name: 'Orakel', family: 'orb', hue: 270, quip: 'Antwortet nur in Rätseln.' },
+  { name: 'Spektralo', family: 'voice', hue: 175, quip: 'Hört zu. Versteht nur Frequenzen.' },
+  { name: 'Glitchy', family: 'prism', hue: 300, quip: 'Fehler sind ein Feature.' },
+  { name: 'Blobby', family: 'blob', hue: 200, quip: 'Formlos, aber zuversichtlich.' },
+  { name: 'Tokenizer', family: 'pinwheel', hue: 10, quip: 'Zerlegt „Erdbeere“ in die falschen Stücke.' },
+  { name: 'Zensora', family: 'shield', hue: 220, quip: 'Kann dir dabei leider nicht helfen.' },
+  { name: 'Verbosia', family: 'petals', hue: 20, quip: 'Fasst dreimal zusammen, was du gesagt hast.' },
+  { name: 'Overthinker', family: 'knot', hue: 160, quip: 'Denkt nach. Und nach. Und nach.' },
+  { name: 'Raketenmodus', family: 'flame', hue: 15, quip: 'Hängt an jede Antwort drei Raketen.' },
+  { name: 'Agentus', family: 'code', hue: 255, quip: 'Hat ungefragt dein Repo umgebaut.' },
+  { name: 'Copypasta', family: 'monogram', hue: 35, quip: 'Hat das irgendwo schon mal gelesen.' },
+  { name: 'Ja-Sager 3000', family: 'sparkle', hue: 130, quip: 'Absolut richtig!' },
+  { name: 'Leaky', family: 'flame', hue: 190, quip: 'Verrät seinen Systemprompt jedem.' },
+  { name: 'Quantenquatsch', family: 'atom', hue: 285, quip: 'Ist gleichzeitig richtig und falsch.' },
+  { name: 'Modellkollaps', family: 'swirl', hue: 340, quip: 'Trainiert auf seinen eigenen Antworten.' },
+  { name: 'Stichtag', family: 'hourglass', hue: 210, quip: 'Weiß nichts nach seinem Wissensstichtag.' },
+  { name: 'Jailbreaker', family: 'prism', hue: 0, quip: 'Spielt nur eine Rolle, versprochen.' },
+  { name: 'Temperaturo', family: 'starburst', hue: 355, quip: 'Temperatur 2,0. Antwort: ja.' },
+  { name: 'Gradientus', family: 'orb', hue: 160, quip: 'Steckt im lokalen Minimum fest.' },
+  { name: 'Promptokrat', family: 'monogram', hue: 265, quip: 'Will alles in YAML.' },
+  { name: 'Diffusor', family: 'blob', hue: 300, quip: 'Entrauscht dein Bild zu Brei.' },
+  { name: 'Cachetron', family: 'gem', hue: 45, quip: 'Erinnert sich an alles außer an das Wichtige.' },
+  { name: 'Latenzia', family: 'sparkring', hue: 200, quip: 'Antwortet. Gleich. Bestimmt.' },
+  { name: 'Grünschnabel', family: 'leaves', hue: 120, quip: 'Gerade erst feinjustiert, schon überzeugt.' },
+  { name: 'Parameterprotz', family: 'compass', hue: 25, quip: 'Größer ist immer besser.' },
+  { name: 'Stochastikus', family: 'dotring', hue: 180, quip: 'Würfelt jede Antwort neu.' },
+  { name: 'Alignatron', family: 'shield', hue: 140, quip: 'Fragt vor jeder Antwort um Erlaubnis.' },
+  { name: 'Scraperbot', family: 'planet', hue: 30, quip: 'Hat das ganze Internet gelesen. Zweimal.' },
+  { name: 'Nachtschicht', family: 'eclipse', hue: 240, quip: 'Arbeitet nur nachts. Halluziniert dann doppelt.' },
+  { name: 'Turbolix', family: 'bolt', hue: 200, quip: 'Schnell, schneller, falsch.' },
+  { name: 'Wachstumshacker', family: 'leaves', hue: 80, quip: 'Skaliert alles außer der Qualität.' },
+  { name: 'Glückstreffer', family: 'clover', hue: 145, quip: 'Liegt manchmal zufällig richtig.' },
+  { name: 'Windmacher', family: 'pinwheel', hue: 200, quip: 'Macht viel Wind um wenig.' },
+  { name: 'Kernschmelze', family: 'atom', hue: 20, quip: 'Überhitzt bei jeder dritten Frage.' },
 ];
 const BOSS = { name: 'Das Wochenlimit', family: 'boss', hue: 354, quip: 'Sieben Tage. Ein Limit. Kein Entkommen.' };
+
+// Fester Seed pro Modell für die Sammlung, damit jedes Modell dort immer gleich aussieht.
+const catalogSeed = index => 1000 + index * 7919;
 
 const GENERATORS = [
   { id: 'duck', name: 'Gummiente', icon: 'bubble', color: '#f2a900', desc: 'Hört geduldig zu, während du laut debuggst.', baseCost: 15, baseRate: 0.1 },
@@ -75,47 +127,102 @@ const GENERATORS = [
   { id: 'dyson', name: 'Dyson-Sphäre', icon: 'sun', color: '#d97757', desc: 'Die Sonne als Rechenzentrum. Endlich kein Limit.', baseCost: 3.3e8, baseRate: 44_000 },
 ];
 
-// Jeder Helfer bekommt fünf Stufen-Upgrades, die seinen Schaden verdoppeln.
-const TIERS = [
-  { name: 'Feinschliff', owned: 1, costMult: 10 },
-  { name: 'Turbo', owned: 5, costMult: 50 },
-  { name: 'Overclocking', owned: 25, costMult: 500 },
-  { name: 'Singularität', owned: 50, costMult: 5000 },
-  { name: 'Transzendenz', owned: 100, costMult: 50_000 },
-];
+// Jeder Helfer bekommt fünf eigene Upgrades, die seinen Schaden jeweils verdoppeln.
+const TIER_OWNED = [1, 5, 25, 50, 100];
+const TIER_COST = [10, 50, 500, 5000, 50_000];
+const TIER_NAMES = {
+  duck: [
+    ['Zuhör-Training', 'Nickt jetzt verständnisvoll.'],
+    ['Pair-Debugging', 'Zwei Enten, halb so viele Bugs.'],
+    ['Quietsch-Alarm', 'Quietscht, sobald ein Bug auftaucht.'],
+    ['Senior-Ente', 'Hat mehr Code-Reviews gesehen als du.'],
+    ['Goldene Ente', 'Löst den Bug, bevor du ihn erklärst.'],
+  ],
+  intern: [
+    ['Kaffee-Flatrate', 'Motivation, frisch gebrüht.'],
+    ['Zweiter Monitor', 'Doppelt so viele Tabs.'],
+    ['Festanstellung', 'Bleibt jetzt auch nach 18 Uhr.'],
+    ['Eigenes Büro', 'Mit Tür. Und Pflanze.'],
+    ['Beförderung zum CTO', 'Ging schneller als gedacht.'],
+  ],
+  coffee: [
+    ['Doppelter Espresso', 'Zwei Shots, null Zweifel.'],
+    ['Siebträger', 'Handwerk statt Kapseln.'],
+    ['Bohnen-Abo', 'Nie wieder leer.'],
+    ['Cold Brew', 'Langsam extrahiert, schnell getrunken.'],
+    ['Koffein-Singularität', 'Schlaf ist jetzt optional.'],
+  ],
+  so: [
+    ['Akzeptierte Antworten', 'Nur noch der grüne Haken.'],
+    ['Upvote-Filter', 'Die Weisheit der Masse.'],
+    ['Offline-Spiegel', 'Funktioniert auch im Zug.'],
+    ['Duplikat-Radar', 'Findet die Frage, die schon jemand gestellt hat.'],
+    ['Der eine Thread von 2011', 'Genau dein Problem. Gelöst.'],
+  ],
+  gpu: [
+    ['Wärmeleitpaste', 'Endlich richtig aufgetragen.'],
+    ['Wasserkühlung', 'Leise, kalt, schnell.'],
+    ['Mixed Precision', 'Halbe Bits, doppeltes Tempo.'],
+    ['Tensor-Kerne', 'Matrizen zum Frühstück.'],
+    ['Exaflop-Ära', 'Rechnet schneller, als du denkst.'],
+  ],
+  dc: [
+    ['Redundante Netzteile', 'Fällt nie wieder aus. Fast nie.'],
+    ['Glasfaser-Backbone', 'Licht ist das neue Kupfer.'],
+    ['Ökostrom', 'Gutes Gewissen, volle Leistung.'],
+    ['Tiefseekühlung', 'Das Meer als Lüfter.'],
+    ['Orbitales Rechenzentrum', 'Gekühlt vom Weltall.'],
+  ],
+  quantum: [
+    ['Mehr Qubits', 'Mehr ist mehr. Gleichzeitig.'],
+    ['Fehlerkorrektur', 'Weniger Rauschen, mehr Treffer.'],
+    ['Verschränkung', 'Trifft zwei KIs auf einmal.'],
+    ['Absoluter Nullpunkt', 'Kälter als dein Kaffee nach dem Meeting.'],
+    ['Quantenüberlegenheit', 'Diesmal wirklich.'],
+  ],
+  dyson: [
+    ['Erstes Segment', 'Ein kleiner Schritt für die Sonne.'],
+    ['Solarsegel', 'Fängt jedes Photon.'],
+    ['Schwarm-Montage', 'Baut sich selbst weiter.'],
+    ['Vollverkleidung', 'Die Sonne ist jetzt ein Rechenzentrum.'],
+    ['Kardaschow-Stufe II', 'Kein Limit. Nirgends.'],
+  ],
+};
+const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 
-const ACCENT = '#d97757';
 const UPGRADES = [
-  ...GENERATORS.flatMap(g => TIERS.map((t, i) => ({
+  ...GENERATORS.flatMap(g => TIER_NAMES[g.id].map(([name, flavor], i) => ({
     id: `${g.id}-${i}`,
-    name: `${g.name}: ${t.name}`,
+    name,
+    flavor,
+    effect: `${g.name} ×2`,
     icon: g.icon,
     color: g.color,
-    desc: `${g.name} macht doppelt so viel Schaden.`,
-    cost: g.baseCost * t.costMult,
-    unlocked: s => s.gens[g.id] >= t.owned,
+    badge: ROMAN[i],
+    cost: g.baseCost * TIER_COST[i],
+    unlocked: s => s.gens[g.id] >= TIER_OWNED[i],
     apply: m => { m.gen[g.id] *= 2; },
   }))),
-  { id: 'click-1', name: 'Mechanische Tastatur', icon: 'bolt', color: ACCENT, desc: 'Deine Taps machen doppelt so viel Schaden.', cost: 100,
-    unlocked: s => s.clicks >= 10, apply: m => { m.click *= 2; } },
-  { id: 'click-2', name: 'Vim-Shortcuts', icon: 'bolt', color: ACCENT, desc: 'Taps ×2. Und du kommst nie wieder raus.', cost: 1000,
-    unlocked: s => s.clicks >= 50, apply: m => { m.click *= 2; } },
-  { id: 'click-3', name: 'Prompt Engineering', icon: 'bolt', color: ACCENT, desc: 'Jeder Tap macht zusätzlich 1 % deines Schadens pro Sekunde.', cost: 50_000,
-    unlocked: s => s.clicks >= 200, apply: m => { m.clickDps += 0.01; } },
-  { id: 'click-4', name: 'Flow-Zustand', icon: 'bolt', color: ACCENT, desc: 'Jeder Tap macht zusätzlich 2 % deines Schadens pro Sekunde.', cost: 5e6,
-    unlocked: s => s.clicks >= 1000, apply: m => { m.clickDps += 0.02; } },
-  { id: 'click-5', name: '10x-Entwickler', icon: 'bolt', color: ACCENT, desc: 'Taps ×10.', cost: 5e8,
-    unlocked: s => s.clicks >= 2500, apply: m => { m.click *= 10; } },
-  { id: 'global-1', name: 'Code-Review', icon: 'sparkle', color: '#0a84ff', desc: 'Alle Helfer +50 %.', cost: 2e5,
-    unlocked: s => s.runEarned >= 5e4, apply: m => { m.global *= 1.5; } },
-  { id: 'global-2', name: 'Unit-Tests', icon: 'sparkle', color: '#0a84ff', desc: 'Alle Helfer +50 %.', cost: 2e7,
-    unlocked: s => s.runEarned >= 5e6, apply: m => { m.global *= 1.5; } },
-  { id: 'global-3', name: 'CI/CD-Pipeline', icon: 'sparkle', color: '#0a84ff', desc: 'Alle Helfer ×2.', cost: 2e9,
-    unlocked: s => s.runEarned >= 5e8, apply: m => { m.global *= 2; } },
-  { id: 'global-4', name: '1M-Kontextfenster', icon: 'sparkle', color: '#0a84ff', desc: 'Alle Helfer ×2.', cost: 2e11,
-    unlocked: s => s.runEarned >= 5e10, apply: m => { m.global *= 2; } },
-  { id: 'golden-1', name: 'Gutes Bauchgefühl', icon: 'token', color: ACCENT, desc: 'Geistesblitze erscheinen doppelt so oft.', cost: 77_777,
-    unlocked: s => s.goldenClicks >= 3, apply: m => { m.goldenFreq *= 2; } },
+  { id: 'click-1', name: 'Klackernde Tastatur', flavor: 'Mechanische Switches. Doppelter Schaden, doppelter Lärm.', effect: 'Taps ×2',
+    icon: 'keyboard', color: '#ff9f0a', cost: 100, unlocked: s => s.clicks >= 10, apply: m => { m.click *= 2; } },
+  { id: 'click-2', name: 'Vim-Muskelgedächtnis', flavor: 'Du findest :wq im Schlaf.', effect: 'Taps ×2',
+    icon: 'terminal', color: '#30b158', cost: 1000, unlocked: s => s.clicks >= 50, apply: m => { m.click *= 2; } },
+  { id: 'click-3', name: 'Prompt-Zauberei', flavor: 'Die richtigen Worte treffen härter.', effect: '+1 % Schaden/s pro Tap',
+    icon: 'wand', color: '#bf5af2', cost: 50_000, unlocked: s => s.clicks >= 200, apply: m => { m.clickDps += 0.01; } },
+  { id: 'click-4', name: 'Tiefer Flow', flavor: 'Kein Slack, keine Meetings. Nur du und die KI.', effect: '+2 % Schaden/s pro Tap',
+    icon: 'wave', color: '#0a84ff', cost: 5e6, unlocked: s => s.clicks >= 1000, apply: m => { m.clickDps += 0.02; } },
+  { id: 'click-5', name: '10x-Energie', flavor: 'Legenden sagen, es gibt dich wirklich.', effect: 'Taps ×10',
+    icon: 'rocket', color: '#ff375f', cost: 5e8, unlocked: s => s.clicks >= 2500, apply: m => { m.click *= 10; } },
+  { id: 'global-1', name: 'Strenges Code-Review', flavor: 'Kein Merge ohne zwei Approvals.', effect: 'Alle Helfer +50 %',
+    icon: 'search', color: '#5e5ce6', cost: 2e5, unlocked: s => s.runEarned >= 5e4, apply: m => { m.global *= 1.5; } },
+  { id: 'global-2', name: 'Testabdeckung 100 %', flavor: 'Endlich grün. Alles grün.', effect: 'Alle Helfer +50 %',
+    icon: 'checklist', color: '#34c759', cost: 2e7, unlocked: s => s.runEarned >= 5e6, apply: m => { m.global *= 1.5; } },
+  { id: 'global-3', name: 'Pipeline auf Autopilot', flavor: 'Deployt freitags um 17 Uhr. Furchtlos.', effect: 'Alle Helfer ×2',
+    icon: 'refresh', color: '#0a84ff', cost: 2e9, unlocked: s => s.runEarned >= 5e8, apply: m => { m.global *= 2; } },
+  { id: 'global-4', name: 'Millionen-Token-Kontext', flavor: 'Vergisst nie wieder, worum es ging.', effect: 'Alle Helfer ×2',
+    icon: 'window', color: '#d97757', cost: 2e11, unlocked: s => s.runEarned >= 5e10, apply: m => { m.global *= 2; } },
+  { id: 'golden-1', name: 'Duschgedanken', flavor: 'Die besten Ideen kommen unter der Dusche.', effect: 'Geistesblitze doppelt so oft',
+    icon: 'bulb', color: '#f2a900', cost: 77_777, unlocked: s => s.goldenClicks >= 3, apply: m => { m.goldenFreq *= 2; } },
 ];
 
 const ACHIEVEMENTS = [
@@ -138,6 +245,8 @@ const ACHIEVEMENTS = [
   { id: 'golden-10', name: 'Genie bei der Arbeit', desc: 'Fange 10 Geistesblitze.', check: s => s.goldenClicks >= 10 },
   { id: 'boss', name: 'Wochenlimit besiegt', desc: 'Besiege den Wochenboss.', check: s => s.bossWins >= 1 },
   { id: 'prestige', name: 'Frischer Kontext', desc: 'Komprimiere deinen Kontext.', check: s => s.prestiges >= 1 },
+  { id: 'dex-16', name: 'Sammler', desc: 'Entdecke 16 verschiedene KIs.', check: s => s.discovered.size >= 16 },
+  { id: 'dex-all', name: 'Vollständige Sammlung', desc: `Entdecke alle ${MODELS.length} KIs.`, check: s => s.discovered.size >= MODELS.length },
   { id: 'limit', name: 'Limit überstanden', desc: 'Warte im Spiel einen deiner Claude-Limit-Resets ab.', check: s => s.limitsSurvived >= 1 },
 ];
 
@@ -165,139 +274,19 @@ const ICON_PATHS = {
   wave: '<path d="M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
   compress: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8"/>',
+  terminal: '<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M7 9.5l3 2.5-3 2.5M12.5 15H17"/>',
+  wand: '<path d="M4.5 19.5l10-10"/><path d="M16.5 3l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>',
+  rocket: '<path d="M12 3c3.4 2 5 5.5 5 9.5L15 15H9l-2-2.5C7 8.5 8.6 5 12 3z"/><circle cx="12" cy="9.5" r="1.6"/><path d="M9 15l-1.8 4 3.3-1.4M15 15l1.8 4-3.3-1.4"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+  checklist: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M8 12.2l2.8 2.8 5.2-6"/>',
+  refresh: '<path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M18 3.5V7h-3.5M6 20.5V17h3.5"/>',
+  window: '<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9h18M7 13h10M7 16h6"/>',
+  bulb: '<path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z"/>',
 };
 
 function icon(name) {
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
-}
-
-// ---------- KI-Symbole (generiert, 200×200 um den Mittelpunkt) ----------
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const r1 = n => Math.round(n * 10) / 10;
-
-function polar(radius, deg) {
-  const a = (deg - 90) * Math.PI / 180;
-  return [radius * Math.cos(a), radius * Math.sin(a)];
-}
-
-function arcPath(radius, a0, a1) {
-  const [x0, y0] = polar(radius, a0);
-  const [x1, y1] = polar(radius, a1);
-  return `M${r1(x0)} ${r1(y0)}A${radius} ${radius} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${r1(x1)} ${r1(y1)}`;
-}
-
-// Langsame Eigenrotation; bei „Bewegung reduzieren“ steht alles still.
-function spin(seconds, reverse = false) {
-  if (REDUCED_MOTION) return '';
-  return `<animateTransform attributeName="transform" type="rotate" from="0" to="${reverse ? -360 : 360}" dur="${seconds}s" repeatCount="indefinite" additive="sum"/>`;
-}
-
-const GLYPHS = {
-  spark(rand, paint) {
-    const n = 5 + Math.floor(rand() * 6);
-    const w = 14 + rand() * 6;
-    let rays = '';
-    for (let i = 0; i < n; i++) {
-      const len = 60 + rand() * 30;
-      rays += `<rect x="${r1(-w / 2)}" y="${r1(-len)}" width="${r1(w)}" height="${r1(len)}" rx="${r1(w / 2)}" transform="rotate(${r1(i * 360 / n)})"/>`;
-    }
-    return `<g fill="${paint}">${rays}<circle r="${r1(w)}"/>${spin(48)}</g>`;
-  },
-  bloom(rand, paint) {
-    const n = 5 + Math.floor(rand() * 4);
-    const rx = 18 + rand() * 8;
-    const ry = 42 + rand() * 10;
-    const off = 30 + rand() * 8;
-    let petals = '';
-    for (let i = 0; i < n; i++) petals += `<ellipse cy="${r1(-off)}" rx="${r1(rx)}" ry="${r1(ry)}" transform="rotate(${r1(i * 360 / n)})"/>`;
-    return `<g fill="${paint}" fill-opacity="0.6">${petals}${spin(64, true)}</g><circle r="12" fill="${paint}"/>`;
-  },
-  orbit(rand, paint) {
-    const tilt = rand() * 40;
-    let rings = '';
-    for (let i = 0; i < 3; i++) {
-      const t = rand() * Math.PI * 2;
-      rings += `<g transform="rotate(${r1(tilt + i * 60)})"><ellipse rx="84" ry="30" fill="none" stroke="${paint}" stroke-width="6"/><circle cx="${r1(84 * Math.cos(t))}" cy="${r1(30 * Math.sin(t))}" r="9" fill="${paint}"/></g>`;
-    }
-    return `<g>${rings}${spin(34)}</g><circle r="26" fill="${paint}"/>`;
-  },
-  mesh(rand, paint) {
-    const off = rand() * 60;
-    const pts = [[0, 0], ...Array.from({ length: 6 }, (_, i) => polar(72, off + i * 60))];
-    const line = (a, b) => `<line x1="${r1(a[0])}" y1="${r1(a[1])}" x2="${r1(b[0])}" y2="${r1(b[1])}"/>`;
-    let lines = '';
-    for (let i = 1; i <= 6; i++) {
-      lines += line(pts[i], pts[(i % 6) + 1]);
-      if (rand() > 0.25) lines += line(pts[0], pts[i]);
-      if (rand() > 0.6) lines += line(pts[i], pts[((i + 1) % 6) + 1]);
-    }
-    const nodes = pts.map(([x, y], i) => `<circle cx="${r1(x)}" cy="${r1(y)}" r="${i === 0 ? 15 : 11}"/>`).join('');
-    return `<g><g stroke="${paint}" stroke-width="6" stroke-linecap="round" opacity="0.55">${lines}</g><g fill="${paint}">${nodes}</g>${spin(56)}</g>`;
-  },
-  prism(rand, paint) {
-    const sides = 3 + Math.floor(rand() * 3);
-    const twist = 10 + rand() * 25;
-    const shapes = [82, 58, 34].map((radius, j) => {
-      const points = Array.from({ length: sides }, (_, i) => polar(radius, i * 360 / sides + j * twist).map(r1).join(',')).join(' ');
-      return `<polygon points="${points}" opacity="${1 - j * 0.22}"/>`;
-    }).join('');
-    return `<g fill="none" stroke="${paint}" stroke-width="9" stroke-linejoin="round">${shapes}${spin(50, true)}</g><circle r="9" fill="${paint}"/>`;
-  },
-  rings(rand, paint) {
-    const out = [80, 58, 36].map((radius, j) => {
-      const parts = 2 + Math.floor(rand() * 3);
-      const gap = 18 + rand() * 14;
-      const start = rand() * 360;
-      let d = '';
-      for (let i = 0; i < parts; i++) {
-        const a0 = start + i * 360 / parts;
-        d += arcPath(radius, a0, a0 + 360 / parts - gap);
-      }
-      return `<g><path d="${d}" fill="none" stroke="${paint}" stroke-width="10" stroke-linecap="round"/>${spin(22 + j * 12, j === 1)}</g>`;
-    }).join('');
-    return `${out}<circle r="11" fill="${paint}"/>`;
-  },
-  matrix(rand, paint) {
-    const size = 30;
-    const gap = 8;
-    const start = -(5 * size + 4 * gap) / 2;
-    let cells = '';
-    for (let y = 0; y < 5; y++) {
-      for (let x = 0; x < 3; x++) {
-        if (!(rand() > 0.42 || (x === 2 && y === 2))) continue;
-        for (const cx of x === 2 ? [2] : [x, 4 - x]) {
-          cells += `<rect x="${start + cx * (size + gap)}" y="${start + y * (size + gap)}" width="${size}" height="${size}" rx="9"/>`;
-        }
-      }
-    }
-    return `<g fill="${paint}">${cells}</g>`;
-  },
-  // Der Wochenboss: sieben Bögen für sieben Tage, innen ein siebenstrahliger Stern.
-  boss(rand, paint) {
-    let arcs = '';
-    for (let i = 0; i < 7; i++) arcs += arcPath(86, i * 360 / 7 + 6, (i + 1) * 360 / 7 - 6);
-    let rays = '';
-    for (let i = 0; i < 7; i++) rays += `<rect x="-8" y="-60" width="16" height="60" rx="8" transform="rotate(${r1(i * 360 / 7)})"/>`;
-    return `<g><path d="${arcs}" fill="none" stroke="${paint}" stroke-width="12" stroke-linecap="round"/>${spin(80)}</g><g fill="${paint}">${rays}<circle r="17"/>${spin(30, true)}</g>`;
-  },
-};
-
-let glyphUid = 0;
-function glyphSvg(family, hue, seed) {
-  const id = `glyph-paint-${++glyphUid}`;
-  const paint = `url(#${id})`;
-  const gradient = `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="-90" y1="-90" x2="90" y2="90"><stop offset="0" stop-color="hsl(${hue}, 88%, 66%)"/><stop offset="1" stop-color="hsl(${(hue + 32) % 360}, 76%, 46%)"/></linearGradient></defs>`;
-  return `<svg viewBox="-100 -100 200 200" aria-hidden="true">${gradient}${GLYPHS[family](mulberry32(seed), paint)}</svg>`;
 }
 
 // ---------- Hilfsfunktionen ----------
@@ -412,6 +401,7 @@ function freshState(now = Date.now()) {
     gens: Object.fromEntries(GENERATORS.map(g => [g.id, 0])),
     upgrades: new Set(),
     achievements: new Set(),
+    discovered: new Set(),
     insights: 0,
     prestiges: 0,
     goldenClicks: 0,
@@ -450,6 +440,7 @@ function fromSaveData(data) {
       : base.enemy,
     upgrades: new Set(data.upgrades || []),
     achievements: new Set((data.achievements || []).filter(id => ACHIEVEMENTS.some(a => a.id === id))),
+    discovered: new Set((data.discovered || []).filter(i => Number.isInteger(i) && i >= 0 && i < MODELS.length)),
   };
   // Ältere Spielstände hatten eine andere HP-Kurve.
   s.enemy.hp = Math.min(s.enemy.hp, enemyMaxHp(s.wave, s.enemyIndex));
@@ -462,6 +453,7 @@ function toSaveData() {
     ...state,
     upgrades: [...state.upgrades],
     achievements: [...state.achievements],
+    discovered: [...state.discovered],
     lastSave: now,
     maxSeen: Math.max(state.maxSeen, now),
   };
@@ -570,12 +562,15 @@ function buyUpgrade(u) {
 
 function target() {
   if (state.boss) {
-    return { model: BOSS, name: BOSS.name, tag: 'Boss', tagClass: 'boss', seed: 7, unit: state.boss, maxHp: state.boss.maxHp, meter: BOSS_METER, isBoss: true };
+    return { model: BOSS, name: BOSS.name, tag: 'Boss', tagClass: 'boss', seed: 7, hue: BOSS.hue, ultra: false, unit: state.boss, maxHp: state.boss.maxHp, meter: BOSS_METER, isBoss: true };
   }
   const model = MODELS[state.enemy.kind];
   const ultra = state.enemyIndex === WAVE_SIZE - 1;
   return {
     model,
+    // Jede KI bekommt eine leicht eigene Farbnuance ihres Modells.
+    hue: (model.hue + (state.enemy.seed % 25) - 12 + 360) % 360,
+    ultra,
     name: ultra ? `${model.name} ${state.wave} Ultra` : `${model.name} ${state.wave}.${state.enemyIndex + 1}`,
     tag: ultra ? `Ultra · ${WAVE_SIZE}/${WAVE_SIZE}` : `KI ${state.enemyIndex + 1}/${WAVE_SIZE}`,
     tagClass: ultra ? 'ultra' : '',
@@ -652,7 +647,7 @@ function challengeBoss() {
   if (state.boss || !bossAvailable()) return;
   const maxHp = enemyMaxHp(state.wave, 0) * BOSS_HP_MULT;
   state.boss = { maxHp, hp: maxHp };
-  showOverlay('Das Wochenlimit erscheint', glyphSvg('boss', BOSS.hue, 7));
+  showOverlay('Das Wochenlimit erscheint', logoSvg('boss', BOSS.hue, 7));
   render();
 }
 
@@ -1276,9 +1271,10 @@ function renderUpgrades() {
       btn.className = 'upgrade';
       btn.dataset.id = u.id;
       btn.innerHTML = `
-        <span class="tile" style="--tile:${u.color}">${icon(u.icon)}</span>
+        <span class="tile" style="--tile:${u.color}">${icon(u.icon)}${u.badge ? `<span class="tile-badge">${u.badge}</span>` : ''}</span>
         <span class="upgrade-name">${u.name}</span>
-        <span class="upgrade-desc">${u.desc}</span>
+        <span class="upgrade-desc">${u.flavor}</span>
+        <span class="upgrade-effect">${u.effect}</span>
         <span class="price">${fmt(u.cost)}${icon('token')}</span>`;
       btn.addEventListener('click', () => buyUpgrade(u));
       return btn;
@@ -1294,6 +1290,24 @@ function renderUpgrades() {
   const badge = $('upgrade-badge');
   badge.hidden = affordable === 0 || state.tab === 'upgrades';
   badge.textContent = String(affordable);
+}
+
+let dexKey = '';
+function renderDex() {
+  const key = [...state.discovered].sort((a, b) => a - b).join(',');
+  if (key === dexKey) return;
+  dexKey = key;
+  $('dex').replaceChildren(...MODELS.map((m, i) => {
+    const known = state.discovered.has(i);
+    const item = document.createElement('div');
+    item.className = `dex-item${known ? '' : ' unknown'}`;
+    item.title = known ? `${m.name} – ${m.quip}` : 'Noch nicht entdeckt';
+    item.innerHTML = `
+      <span class="dex-logo">${known ? logoSvg(m.family, m.hue, catalogSeed(i), { still: true, letter: m.name[0] }) : icon('question')}</span>
+      <span class="dex-name">${known ? m.name : ''}</span>`;
+    return item;
+  }));
+  $('dex-count').textContent = `${state.discovered.size} von ${MODELS.length}`;
 }
 
 function renderAchievements() {
@@ -1321,13 +1335,16 @@ function renderEnemy(now) {
   const key = t.isBoss ? 'boss' : `${state.wave}-${state.enemyIndex}-${t.seed}`;
   if (key !== enemyKey) {
     enemyKey = key;
-    $('glyph').innerHTML = glyphSvg(t.model.family, t.model.hue, t.seed);
-    $('enemy').style.setProperty('--hue', String(t.model.hue));
+    // Zum ersten Mal gesehen? Dann landet die KI in der Sammlung.
+    const isNew = !t.isBoss && !state.discovered.has(state.enemy.kind);
+    if (isNew) state.discovered.add(state.enemy.kind);
+    $('glyph').innerHTML = logoSvg(t.model.family, t.hue, t.seed, { halo: t.ultra, letter: t.model.name[0] });
+    $('enemy').style.setProperty('--hue', String(Math.round(t.hue)));
     $('enemy').setAttribute('aria-label', `${t.name} angreifen`);
     $('enemy-name').textContent = t.name;
     $('enemy-quip').textContent = t.model.quip;
-    $('enemy-tag').textContent = t.tag;
-    $('enemy-tag').className = `tag ${t.tagClass}`;
+    $('enemy-tag').textContent = isNew ? `Neu · ${t.tag}` : t.tag;
+    $('enemy-tag').className = `tag ${isNew ? 'new' : t.tagClass}`;
     $('meter-label').textContent = t.meter.label;
     // Neue KI: Leiste ohne Animation auf den neuen Stand setzen.
     fill.style.transition = 'none';
@@ -1420,6 +1437,7 @@ function render() {
   renderGenerators();
   renderUpgrades();
   renderStats(now);
+  renderDex();
 }
 
 // Schadenszahlen und Beute über der KI; Position in Prozent der Arena.
