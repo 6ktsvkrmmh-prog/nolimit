@@ -32,9 +32,7 @@ jobs:
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install webkit
-          python3 -m http.server 8000 >/dev/null 2>&1 &
-          sleep 1
-          node .github/scripts/webkit-smoke.js http://127.0.0.1:8000/
+          node .github/scripts/webkit-smoke.js "file://$PWD/index.html"
 
       - name: Rust für Intel und Apple-Chips
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
