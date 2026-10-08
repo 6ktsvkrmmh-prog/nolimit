@@ -59,8 +59,9 @@ const CHAIN_EASY_UNTIL = 15;       // bis hierhin bleibt die Kette gleich leicht
 const CHAIN_HARD_AT = 75;          // … ab hier ist sie maximal schwer
 const CHAIN_WINDOW_EASY = 3400;    // Zeit bis zum nächsten Treffer am Anfang …
 const CHAIN_WINDOW_HARD = 800;     // … und ganz am Ende
-const CHAIN_SIZE_EASY = 1.25;      // Größe der Schwachstelle am Anfang …
-const CHAIN_SIZE_HARD = 0.5;       // … und am Ende
+const CHAIN_SIZE_EASY = 1.1;       // Trefferfläche der Schwachstelle am Anfang …
+const CHAIN_SIZE_HARD = 0.45;      // … und am Ende
+const WEAKSPOT_VISUAL = 0.62;      // sichtbar ist der Punkt kleiner als seine Trefferfläche (verzeiht knappe Taps)
 const CHAIN_DRIFT_MAX = 0.6;       // Wandern am Ende (Anteil der KI-Größe pro Sekunde)
 const WEAKSPOT_RADIUS = 0.13;   // Trefferradius als Anteil der KI-Größe
 const WEAKSPOT_MOVE_MS = 2600;
@@ -89,12 +90,12 @@ const VORTEX_CHANCE = 1 / 400;     // Dark-Vortex-Variante: super selten
 const VORTEX_LOOT = 5;
 const MISSION_COUNT = 3;
 // Flow-Serie: ab und zu nummerierte Kreise im Takt – 1, 2, 3 antippen, bevor sich ihr Ring schließt.
-const SERIES_MIN_MS = 7000;
-const SERIES_MAX_MS = 13_000;
+const SERIES_MIN_MS = 18_000;
+const SERIES_MAX_MS = 30_000;
 const SERIES_GRACE_MS = 140;       // kurz nach dem Schließen zählt es noch
 const SERIES_PERFECT_MS = 260;     // so knapp vor dem Schließen ist es „Perfekt“
 const SERIES_PERFECT_MULT = 1.5;
-const SERIES_CHAIN_GAP_MS = 3000;  // Mindestabstand, bevor die Krit-Kette die nächste Serie auslöst
+const SERIES_CHAIN_GAP_MS = 12_000; // Mindestabstand, bevor die Krit-Kette die nächste Serie auslöst
 const SLIDER_FOLLOW_PX = 80;       // Bogen: so weit darf der Finger vom Bogen weg sein
 const SLIDER_MAX_MS = 900;         // so lange darf ein Wischer höchstens dauern
 const SLIDER_FAST_MS = 260;        // schneller als das: Blitzbogen
@@ -1506,7 +1507,7 @@ function moveWeakSpot(now) {
   const el = $('weakspot');
   el.style.left = `${weak.x * 100}%`;
   el.style.top = `${weak.y * 100}%`;
-  $('enemy').style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
+  $('enemy').style.setProperty('--weak-size', String(weakRadius() * 2 * WEAKSPOT_VISUAL));
   restartAnimation(el, 'pop');
   // Die falschen Punkte (Halluziniert) springen mit.
   const f1 = randomSpot([weak], 0.2);
@@ -1816,6 +1817,61 @@ function blip({ freq = 440, to = freq, dur = 0.08, type = 'sine', gain = 0.04, d
   }
 }
 
+// Kurzes Rauschen als knackiger Anschlag (für Treffer im Takt)
+function click({ freq = 3200, gain = 0.06, dur = 0.035, delay = 0 } = {}) {
+  if (!state.sound || quiet || document.hidden) return;
+  try {
+    audio.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audio.ctx;
+    if (!audio.noise) {
+      audio.noise = ctx.createBuffer(1, Math.round(ctx.sampleRate * 0.06), ctx.sampleRate);
+      const data = audio.noise.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    const t = ctx.currentTime + delay;
+    const src = ctx.createBufferSource();
+    src.buffer = audio.noise;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = freq;
+    filter.Q.value = 1.4;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(filter).connect(g).connect(ctx.destination);
+    src.start(t);
+    src.stop(t + dur + 0.01);
+  } catch {
+    // Kein Ton verfügbar.
+  }
+}
+
+// Ton, der beim Wischen über einen Bogen mitsteigt
+function slideTone() {
+  if (!state.sound || quiet || document.hidden) return null;
+  try {
+    audio.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audio.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = 420;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.03, ctx.currentTime + 0.03);
+    osc.connect(g).connect(ctx.destination);
+    osc.start();
+    return {
+      set: p => osc.frequency.setTargetAtTime(420 + 940 * p, ctx.currentTime, 0.012),
+      stop: () => {
+        g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.02);
+        osc.stop(ctx.currentTime + 0.12);
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 const SFX = {
   tap: n => blip({ freq: 520 + Math.min(n, 60) * 8, to: 360, dur: 0.06, gain: 0.025 }),
   crit: (n = 0) => {
@@ -1840,16 +1896,16 @@ const SFX = {
   // Flow-Serie: jeder Kreis eine Stufe höher (pentatonisch), perfekt mit hellem Oberton
   flow: (i, perfect) => {
     const freq = [659, 784, 880, 1047, 1175][Math.min(i, 4)];
-    blip({ freq, to: freq * 1.02, dur: 0.14, type: 'triangle', gain: 0.045 });
-    if (perfect) blip({ freq: freq * 2, dur: 0.18, type: 'sine', gain: 0.022, delay: 0.03 });
+    click({ freq: perfect ? 4200 : 3000, gain: 0.07 });
+    blip({ freq, to: freq * 1.01, dur: 0.12, type: 'triangle', gain: 0.045 });
+    if (perfect) blip({ freq: freq * 2, dur: 0.16, type: 'sine', gain: 0.024, delay: 0.02 });
   },
-  slideStart: () => blip({ freq: 523, to: 659, dur: 0.12, type: 'sine', gain: 0.025 }),
   swoosh: fast => {
-    blip({ freq: 440, to: fast ? 1760 : 1320, dur: 0.16, type: 'sawtooth', gain: 0.012 });
-    blip({ freq: fast ? 1568 : 1319, dur: 0.18, type: 'triangle', gain: 0.035, delay: 0.08 });
+    click({ freq: 5200, gain: 0.07, dur: 0.05 });
+    blip({ freq: fast ? 1568 : 1319, to: fast ? 1760 : 1397, dur: 0.2, type: 'triangle', gain: 0.04 });
   },
   buy: () => blip({ freq: 880, to: 1320, dur: 0.07, type: 'triangle', gain: 0.03 }),
-  slideTick: n => blip({ freq: n === 1 ? 1047 : 1319, dur: 0.07, type: 'triangle', gain: 0.03 }),
+  slideTick: n => click({ freq: n === 1 ? 3600 : 4400, gain: 0.05, dur: 0.025 }),
   flowDone: perfect => (perfect ? [784, 988, 1175, 1568] : [659, 880, 1047]).forEach((freq, i) => blip({ freq, dur: 0.2, type: 'triangle', gain: 0.035, delay: i * 0.06 })),
 };
 
@@ -2105,8 +2161,8 @@ function seriesApproach() {
 
 // Mitten in der Krit-Kette, auch schon früh, kann eine Serie starten.
 function maybeChainSeries(now) {
-  if (!hasUnlock('series') || series.items.length || state.boss || chain.count < 2 || now - series.endedAt < SERIES_CHAIN_GAP_MS) return;
-  if (Math.random() < (chain.count <= 4 ? 0.3 : 0.16)) spawnSeries();
+  if (!hasUnlock('series') || series.items.length || state.boss || chain.count < 3 || now - series.endedAt < SERIES_CHAIN_GAP_MS) return;
+  if (Math.random() < 0.08) spawnSeries();
 }
 
 const bezier = (sl, t) => [0, 1].map(k => (1 - t) ** 2 * sl.p[k] + 2 * (1 - t) * t * sl.c[k] + t ** 2 * sl.q[k]);
@@ -2219,7 +2275,7 @@ function spawnSeries() {
   layer.replaceChildren();
   const r = Math.round;
   const line = points.flatMap((p, i) => (sliders[i] ? [p, sliders[i].q] : [p])).map(p => p.map(r).join(',')).join(' ');
-  const tracks = sliders.map((sl, i) => (sl ? ((d) => `<g class="slider-track" data-slider="${i}"><path class="st-edge" d="${d}"/><path class="st-fill" d="${d}"/><path class="st-progress" pathLength="1" d="${d}"/><circle cx="${r(sl.q[0])}" cy="${r(sl.q[1])}" r="21"/></g>`)(`M${sl.p.map(r).join(' ')}Q${sl.c.map(r).join(' ')} ${sl.q.map(r).join(' ')}`) : '')).join('');
+  const tracks = sliders.map((sl, i) => (sl ? ((d) => `<g class="slider-track" data-slider="${i}"><path class="st-edge" d="${d}"/><path class="st-fill" d="${d}"/><path class="st-progress" pathLength="1" d="${d}"/><circle class="st-end" cx="${r(sl.q[0])}" cy="${r(sl.q[1])}" r="21"/>${[1, 2].map(k => { const [x, y] = bezier(sl, k / 3); return `<circle class="st-tick" data-tick="${k}" cx="${r(x)}" cy="${r(y)}" r="5"/>`; }).join('')}</g>`)(`M${sl.p.map(r).join(' ')}Q${sl.c.map(r).join(' ')} ${sl.q.map(r).join(' ')}`) : '')).join('');
   layer.insertAdjacentHTML('beforeend', `<svg class="series-path" viewBox="0 0 ${r(arena.width)} ${r(arena.height)}" aria-hidden="true"><polyline points="${line}"/>${tracks}</svg>`);
   const toPct = ([x, y]) => [x / arena.width * 100, y / arena.height * 100];
   series.items = points.map((p, i) => {
@@ -2257,9 +2313,11 @@ function spawnSeries() {
     }, delays[i]);
     return item;
   });
+  // Kugel mit Kometenschweif (drei Nachzügler)
   const ball = document.createElement('span');
   ball.className = 'slider-ball';
   ball.hidden = true;
+  ball.innerHTML = '<i></i><i></i><i></i><b></b>';
   layer.append(ball);
   series.ball = ball;
   series.next = 0;
@@ -2279,22 +2337,29 @@ function pointerInArena(e) {
   return [e.clientX - a.left, e.clientY - a.top];
 }
 
-function placeBall([x, y]) {
-  const a = series.arena;
-  series.ball.style.left = `${x / a.width * 100}%`;
-  series.ball.style.top = `${y / a.height * 100}%`;
+// Kugel und Schweif per transform (flüssig, ohne Layout)
+function placeBall([x, y], trail = []) {
+  const parts = series.ball.children;
+  parts[3].style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  for (let k = 0; k < 3; k++) {
+    const [tx, ty] = trail[k] || [x, y];
+    parts[k].style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px)`;
+  }
 }
 
-// Bogen: gedrückt halten und zügig entlang wischen. Die Kugel folgt dem Finger, die Spur füllt sich.
+// Bogen: gedrückt halten und zügig entlang wischen. Die Kugel gleitet dem Finger weich hinterher,
+// die Spur füllt sich, und ein Ton steigt mit.
 function startSlide(item, e) {
   const now = Date.now();
   item.holding = true;
   item.perfectHead = now >= item.appearAt + series.approach - SERIES_PERFECT_MS;
   item.slideAt = now;
   item.deadline = Infinity;
-  item.progress = 0;
+  item.target = 0;
+  item.shown = 0;
   item.ticks = 0;
-  item.samples = Array.from({ length: 41 }, (_, k) => bezier(item.slider, k / 40));
+  item.history = [];
+  item.samples = Array.from({ length: 65 }, (_, k) => bezier(item.slider, k / 64));
   item.el.classList.add('holding');
   try {
     item.el.setPointerCapture(e.pointerId);
@@ -2317,69 +2382,96 @@ function startSlide(item, e) {
   item.el.addEventListener('pointerup', up);
   item.el.addEventListener('pointercancel', up);
   item.watch = setTimeout(() => {
-    if (item.holding) failSlide(item, bezier(item.slider, item.progress), 'Zu langsam');
+    if (item.holding) failSlide(item, bezier(item.slider, item.shown), 'Zu langsam');
   }, SLIDER_MAX_MS);
+  item.tone = slideTone();
   placeBall(item.slider.p);
   series.ball.hidden = false;
   sliderTrack(item)?.classList.add('active');
-  SFX.slideStart();
+  requestAnimationFrame(() => slideAnim(item));
 }
 
 function sliderTrack(item) {
   return $('series').querySelector(`[data-slider="${item.index}"]`);
 }
 
-// Die Kugel springt auf die Stelle des Bogens, die dem Finger am nächsten ist – nur vorwärts.
-function slideMove(item, pos) {
-  if (!item.holding) return;
-  let best = item.progress;
+// Nächster Punkt auf dem Bogen (genau, zwischen den Stützstellen projiziert) – nur vorwärts
+function projectOnSlider(item, [px, py]) {
+  let best = item.target;
   let bestD = Infinity;
-  item.samples.forEach((p, k) => {
-    const t = k / 40;
-    if (t < item.progress - 0.15) return;
-    const d = Math.hypot(p[0] - pos[0], p[1] - pos[1]);
+  const n = item.samples.length - 1;
+  for (let k = 0; k < n; k++) {
+    if ((k + 1) / n < item.target - 0.15) continue;
+    const [ax, ay] = item.samples[k];
+    const [bx, by] = item.samples[k + 1];
+    const vx = bx - ax;
+    const vy = by - ay;
+    const u = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy || 1)));
+    const d = Math.hypot(ax + vx * u - px, ay + vy * u - py);
     if (d < bestD) {
       bestD = d;
-      best = t;
-    }
-  });
-  if (bestD > SLIDER_FOLLOW_PX) return failSlide(item, bezier(item.slider, item.progress));
-  if (best > item.progress) {
-    item.progress = best;
-    placeBall(bezier(item.slider, best));
-    sliderTrack(item)?.querySelector('.st-progress')?.style.setProperty('stroke-dasharray', `${best.toFixed(3)} 1`);
-    const tick = Math.floor(best * 3);
-    if (tick > item.ticks && tick < 3) {
-      item.ticks = tick;
-      SFX.slideTick(tick);
-      haptic();
+      best = (k + u) / n;
     }
   }
-  if (item.progress >= 0.9) completeSlide(item);
+  return { t: best, d: bestD };
+}
+
+function slideMove(item, pos) {
+  if (!item.holding) return;
+  const { t, d } = projectOnSlider(item, pos);
+  if (d > SLIDER_FOLLOW_PX) return failSlide(item, bezier(item.slider, item.shown));
+  if (t > item.target) item.target = t;
+  if (item.target >= 0.94) completeSlide(item);
+}
+
+// Pro Bild: Kugel gleitet weich zum Ziel, Schweif, Spur, Zwischenpunkte, Ton
+function slideAnim(item) {
+  if (!item.holding) return;
+  item.shown += (item.target - item.shown) * 0.5;
+  if (item.target - item.shown < 0.002) item.shown = item.target;
+  const pos = bezier(item.slider, item.shown);
+  item.history.unshift(pos);
+  item.history.length = Math.min(item.history.length, 9);
+  placeBall(pos, [item.history[2], item.history[5], item.history[8]]);
+  sliderTrack(item)?.querySelector('.st-progress')?.style.setProperty('stroke-dasharray', `${item.shown.toFixed(3)} 1`);
+  item.tone?.set(item.shown);
+  const tick = Math.floor(item.shown * 3);
+  if (tick > item.ticks && tick < 3) {
+    item.ticks = tick;
+    sliderTrack(item)?.querySelector(`[data-tick="${tick}"]`)?.classList.add('hit');
+    SFX.slideTick(tick);
+    haptic();
+  }
+  requestAnimationFrame(() => slideAnim(item));
 }
 
 function stopSlide(item) {
   item.holding = false;
   clearTimeout(item.watch);
   item.release?.();
+  item.tone?.stop();
+  item.tone = null;
   item.el.classList.remove('holding');
   if (series.ball) series.ball.hidden = true;
 }
 
 // Fast am Ende loslassen zählt noch.
 function releaseSlide(item) {
-  if (item.progress >= 0.7) completeSlide(item);
-  else failSlide(item, bezier(item.slider, item.progress));
+  if (item.target >= 0.7) completeSlide(item);
+  else failSlide(item, bezier(item.slider, item.shown));
 }
 
 function completeSlide(item) {
   const fast = Date.now() - item.slideAt <= SLIDER_FAST_MS;
   stopSlide(item);
+  const track = sliderTrack(item);
+  track?.querySelector('.st-progress')?.style.setProperty('stroke-dasharray', '1 1');
+  track?.classList.add('complete');
   // Funkenspur entlang des Bogens
   const a = series.arena;
-  for (const t of [0.25, 0.5, 0.75, 1]) {
+  for (const t of [0.2, 0.4, 0.6, 0.8, 1]) {
     const [x, y] = bezier(item.slider, t);
-    fxBurst(x / a.width * 100, y / a.height * 100, { count: t === 1 ? 14 : 4, color: fast ? '#ffcc00' : null, hue: 20, spread: t === 1 ? 90 : 30, size: t === 1 ? 7 : 5, fall: 10 });
+    fxBurst(x / a.width * 100, y / a.height * 100, { count: t === 1 ? 16 : 3, color: fast ? '#ffcc00' : null, hue: 20, spread: t === 1 ? 95 : 26, size: t === 1 ? 7 : 5, fall: 8, dur: 520 });
   }
   SFX.swoosh(fast);
   landSeries(item, item.perfectHead, true, fast);
@@ -3320,7 +3412,7 @@ function renderArenaHud(now) {
   }
   const blind = now < debuffs.blind;
   const spot = $('weakspot');
-  $('enemy').style.setProperty('--weak-size', String(weakRadius() * 2 * 0.8));
+  $('enemy').style.setProperty('--weak-size', String(weakRadius() * 2 * WEAKSPOT_VISUAL));
   const crits = hasUnlock('crit');
   spot.hidden = blind || !crits;
   for (const f of document.querySelectorAll('.weakspot.fake')) f.hidden = blind || !crits || t.trait !== 'decoy';

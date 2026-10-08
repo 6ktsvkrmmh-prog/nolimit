@@ -33,8 +33,9 @@ Branch und Ordner `/ (root)` auswählen.
 - **Flow-Serien:** Ab und zu, oft mitten in der Krit-Kette, erscheinen 2 bis 5 nummerierte Kreise nacheinander im
   Takt (je länger die Kette, desto mehr), in wechselnden Mustern (Linie, Bogen, Zickzack, Vieleck, Treppe, freier Pfad) und Rhythmen (gleichmäßig,
   Doppeltakt, schneller werdend). Antippen, bevor sich ihr Ring schließt; genau beim Schließen gibt es „Perfekt“.
-  Bögen: gedrückt halten und zügig entlang des Schwungs wischen, die Kugel folgt dem Finger und die Spur füllt
-  sich (zählen doppelt, in unter 0,26 s als Blitzbogen noch mehr).
+  Bögen: gedrückt halten und zügig entlang des Schwungs wischen – die Kugel gleitet mit Kometenschweif hinterher,
+  die Spur füllt sich, ein Ton steigt mit (zählen doppelt, in unter 0,26 s als Blitzbogen noch mehr).
+  Serien kommen etwa alle 18 bis 30 Sekunden und ab und zu aus einer laufenden Krit-Kette heraus.
   Jeder Kreis ist ein Kettenglied, die Kette läuft während der Serie nicht ab, und die ganze Serie gibt einen
   Bonusschlag. Am Anfang gemütlich, mit wachsender Kette schneller. Verpassen kostet nichts.
 - **Fähigkeiten wie bei Tap Titans:** Superschlag, Viraler Hype (Tokens ×N), Prompt-Sturm (Auto-Taps),
@@ -70,7 +71,7 @@ Branch und Ordner `/ (root)` auswählen.
   Feinjustieren mit Mausrad oder Trackpad. Beide Countdowns laufen live; ist ein Limit zurück, meldet sie sich.
 - **Offline-Fortschritt** bis zu 12 Stunden; eine zurückgestellte Systemuhr wird erkannt.
 - **Effekte:** Partikel und Schockwellen bei Treffern, ein Nachbild beim Sieg, die KI weicht vom Tap weg,
-  Krits mit Blitz, eine Aura in der Farbe der aktuellen KI, weich zählende Tokens und federnde Anzeigen.
+  Krits mit Blitz, weich zählende Tokens und federnde Anzeigen.
   Bei „Bewegung reduzieren“ im System bleibt alles ruhig.
 - Hell- und Dunkelmodus, dezente Töne (abschaltbar), automatisches Speichern, Export/Import
 
