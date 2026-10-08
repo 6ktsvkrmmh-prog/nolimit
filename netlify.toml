@@ -1,3 +1,0 @@
-# Netlify: Das Spiel ist fertiges HTML/CSS/JS, es gibt nichts zu bauen.
-[build]
-  publish = "."

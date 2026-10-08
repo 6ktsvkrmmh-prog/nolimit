@@ -23,7 +23,7 @@ Branch und Ordner `/ (root)` auswählen.
 ### Als App auf dem Desktop
 
 - **Als installierte App (mit Icon, eigenem Fenster, offline spielbar):** Die Seite über eine Web-Adresse öffnen,
-  z. B. <https://no-limit-idle.netlify.app> (Netlify veröffentlicht diesen Branch, `netlify.toml`), einen anderen
+  z. B. <https://6ktsvkrmmh-prog.github.io/nolimit/> (GitHub Pages veröffentlicht diesen Branch), einen anderen
   Webspace oder lokal mit `python3 -m http.server 8000`. Dann in Chrome oder Edge in der Adressleiste auf
   „App installieren“ klicken, in Safari auf dem Mac *Ablage → Zum Dock hinzufügen*.
   Manifest (`manifest.webmanifest`), Icons (`icons/`) und Offline-Speicher (`sw.js`) sind dabei. Mit Netz lädt die
