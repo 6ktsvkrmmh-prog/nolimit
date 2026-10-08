@@ -25,8 +25,13 @@ Branch und Ordner `/ (root)` auswählen.
 - **Tippen statt Knopf:** Tippe direkt auf die KI. Jeder Schadenspunkt bringt Tokens, jeder Sieg zusätzlich Beute.
 - **Schwachstelle & Krit-Kette:** Ein leuchtender Punkt sitzt auf jeder KI – wer ihn trifft, landet einen
   kritischen Treffer. Treffer in Folge bilden eine Krit-Kette: jedes Glied +25 % Krit-Schaden, aber das
-  Zeitfenster schrumpft (2,6 s → 0,7 s), der Punkt wird kleiner und wandert immer schneller. Ein Fehltipp
-  lässt die Kette reißen. Dazu baut schnelles Tippen eine Combo bis ×2 auf.
+  Zeitfenster schrumpft (3,4 s → 0,7 s), der Punkt wird kleiner und wandert ab Glied 5 immer schneller.
+  Die ersten Glieder sind bewusst leicht, damit das Aufbauen Spaß macht. Ein Fehltipp lässt die Kette reißen. Dazu baut schnelles Tippen eine Combo bis ×2 auf.
+- **Flow-Serien:** Ab und zu erscheinen 3 nummerierte Kreise nacheinander im Takt (mit langer Krit-Kette 4 oder 5),
+  in wechselnden Mustern (Linie, Bogen, Zickzack, Vieleck, Treppe, freier Pfad) und Rhythmen (gleichmäßig,
+  Doppeltakt, schneller werdend). Antippen, bevor sich ihr Ring schließt; genau beim Schließen gibt es „Perfekt“.
+  Jeder Kreis ist ein Kettenglied, die ganze Serie gibt einen Bonusschlag. Am Anfang gemütlich, mit wachsender
+  Kette schneller. Verpassen kostet nichts.
 - **Fähigkeiten wie bei Tap Titans:** Superschlag, Viraler Hype (Tokens ×N), Prompt-Sturm (Auto-Taps),
   Exploit-Modus (kritische Treffer), Hyperfokus (Tap-Schaden ×N) und Overclock (Helfer ×N). Freischalten
   ab einer Welle, mit Tokens bis Stufe 10 leveln, auslösen über die Kreise im Angriffsfeld oder die Tasten 1–6.
@@ -54,7 +59,7 @@ Branch und Ordner `/ (root)` auswählen.
 - **Helfer & Upgrades mit KI-Thema:** Prompt-Bibliothek, Feintuner, Vektor-Datenbank, Agenten-Schwarm,
   Tensor-Farm, Trainingscluster, Neuromorpher Chip, Singularität – je fünf Upgrades wie „Chain of Thought“,
   „LoRA-Adapter“ oder „Ereignishorizont“.
-- **Ziele:** drei Aufträge mit Belohnung, die KI-Sammlung und 39 Erfolge.
+- **Ziele:** drei Aufträge mit Belohnung, die KI-Sammlung und 41 Erfolge.
 - **Limit-Blase für deine Claude-Limits:** neben „No Limit“, öffnet sich bei Hover (oder Antippen).
   Restzeit des 5-Stunden-Limits und Uhrzeit des Wochen-Resets per Ziehen einstellen, Tage wischen,
   Feinjustieren mit Mausrad oder Trackpad. Beide Countdowns laufen live; ist ein Limit zurück, meldet sie sich.

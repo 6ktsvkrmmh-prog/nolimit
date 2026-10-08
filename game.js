@@ -59,10 +59,14 @@ const CHAIN_WINDOW_STEP = 120;     // … minus so viel pro Glied …
 const CHAIN_WINDOW_MIN = 700;      // … aber nie weniger als das
 const CHAIN_SHRINK = 0.035;        // Schwachstelle pro Glied 3,5 % kleiner …
 const CHAIN_MIN_SIZE = 0.45;       // … bis auf 45 %
-const CHAIN_DRIFT_FROM = 3;        // ab dieser Kette wandert der Punkt …
+const CHAIN_DRIFT_FROM = 5;        // ab dieser Kette wandert der Punkt …
 const CHAIN_DRIFT_STEP = 0.06;     // … pro Glied schneller (Anteil der KI-Größe pro Sekunde)
 const CHAIN_DRIFT_MAX = 0.6;
 const WEAKSPOT_RADIUS = 0.13;   // Trefferradius als Anteil der KI-Größe
+// Leichter Einstieg in die Krit-Kette: Die ersten Glieder haben mehr Zeit und einen größeren Punkt.
+const CHAIN_EASY_LINKS = 4;
+const CHAIN_EASY_WINDOW = 200;  // ms extra pro Glied unter CHAIN_EASY_LINKS (am Anfang +800 ms)
+const CHAIN_EASY_SIZE = 0.25;   // am Anfang 25 % größer, bis Glied 4 auf normal
 const WEAKSPOT_MOVE_MS = 2600;
 const ULTRA_TIME_MS = 30_000;   // Launch-Countdown der Ultra-KI
 const TRAIT_MIN_WAVE = 3;
@@ -88,6 +92,12 @@ const COOLDOWN_FLOOR = 0.5;        // Abklingzeiten lassen sich höchstens halbi
 const VORTEX_CHANCE = 1 / 400;     // Dark-Vortex-Variante: super selten
 const VORTEX_LOOT = 5;
 const MISSION_COUNT = 3;
+// Flow-Serie: ab und zu nummerierte Kreise im Takt – 1, 2, 3 antippen, bevor sich ihr Ring schließt.
+const SERIES_MIN_MS = 7000;
+const SERIES_MAX_MS = 13_000;
+const SERIES_GRACE_MS = 140;       // kurz nach dem Schließen zählt es noch
+const SERIES_PERFECT_MS = 260;     // so knapp vor dem Schließen ist es „Perfekt“
+const SERIES_PERFECT_MULT = 1.5;
 
 // Die Lebensleiste ist als Claude-Limit gestaltet: Die HP werden als „verbleibende Zeit“
 // dargestellt. Mit echter Zeit hat das nichts zu tun, es ist nur die Optik.
@@ -324,6 +334,8 @@ const UPGRADES = [
     icon: 'chain', colors: ['#ff375f', '#d97757'], cost: 75_000, unlocked: s => s.bestChain >= 6, apply: m => { m.chainWindow += 400; } },
   { id: 'chain-2', name: 'Präzisionsoptik', flavor: 'Auch kleine Ziele bleiben groß genug.', effect: 'Schwachstelle schrumpft halb so schnell',
     icon: 'target', colors: ['#5e5ce6', '#ff375f'], cost: 5e7, unlocked: s => s.bestChain >= 15, apply: m => { m.chainShrink *= 0.5; } },
+  { id: 'series-1', name: 'Flow-Zustand', flavor: 'Wenn es läuft, dann läuft es.', effect: 'Flow-Serien doppelt so oft',
+    icon: 'sparkle', colors: ['#d97757', '#ffcc00'], cost: 40_000, unlocked: s => s.seriesDone >= 5, apply: m => { m.seriesFreq *= 2; } },
   { id: 'ultra-1', name: 'Launch-Verschiebung', flavor: 'Die Presse wartet. Noch.', effect: 'Ultra-Countdown +15 s',
     icon: 'rocket', colors: ['#0a84ff', '#bf5af2'], cost: 50_000, unlocked: s => s.ultraFails >= 1, apply: m => { m.ultraTime += 15_000; } },
 ];
@@ -488,6 +500,7 @@ const MISSION_TYPES = [
   { type: 'ultras', icon: 'rocket', range: [1, 3], text: n => (n > 1 ? `Besiege ${n} Ultra-KIs vor dem Launch` : 'Besiege eine Ultra-KI vor dem Launch') },
   { type: 'traits', icon: 'shield', range: [3, 8], text: n => `Besiege ${n} KIs mit Eigenschaft`, when: s => s.highestWave >= TRAIT_MIN_WAVE },
   { type: 'skills', icon: 'storm', range: [2, 5], text: n => `Setze ${n}× eine Fähigkeit ein`, when: s => SKILLS.some(k => s.skills[k.id].level > 0) },
+  { type: 'series', icon: 'sparkle', range: [2, 5], text: n => `Schließe ${n} Flow-Serien ab`, when: s => s.clicks >= 30 },
   { type: 'discover', icon: 'sparkle', range: [2, 4], text: n => `Entdecke ${n} neue KIs`, when: s => MODELS.filter((m, i) => (m.wave || 1) <= s.highestWave && !s.discovered.has(i)).length >= 4 },
 ];
 
@@ -522,6 +535,8 @@ const ACHIEVEMENTS = [
   { id: 'dex-48', name: 'Kenner', desc: 'Entdecke 48 verschiedene KIs.', check: s => s.discovered.size >= 48 },
   { id: 'dex-all', name: 'Vollständige Sammlung', desc: `Entdecke alle ${MODELS.length} KIs.`, check: s => s.discovered.size >= MODELS.length },
   { id: 'crit-1', name: 'Kritischer Moment', desc: 'Lande deinen ersten kritischen Treffer.', check: s => s.crits >= 1 },
+  { id: 'series-25', name: 'Im Flow', desc: 'Schließe 25 Flow-Serien ab.', check: s => s.seriesDone >= 25 },
+  { id: 'series-perfect', name: 'Taktgefühl', desc: 'Triff alle Kreise einer Flow-Serie perfekt.', check: s => s.seriesPerfect >= 1 },
   { id: 'combo-100', name: 'Combo-Meister', desc: 'Erreiche eine Combo von 100.', check: s => s.maxCombo >= 100 },
   { id: 'chain-10', name: 'Scharfschütze', desc: 'Schaffe eine Krit-Kette von 10.', check: s => s.bestChain >= 10 },
   { id: 'chain-25', name: 'Unaufhaltsam', desc: 'Schaffe eine Krit-Kette von 25.', check: s => s.bestChain >= 25 },
@@ -761,6 +776,8 @@ function freshState(now = Date.now()) {
     ultraWins: 0,
     ultraFails: 0,
     skillUses: 0,
+    seriesDone: 0,
+    seriesPerfect: 0,
     traitKills: 0,
     rateLimited: 0,
     missionsDone: 0,
@@ -866,6 +883,7 @@ function computeMods() {
     clickDps: 0,
     global: 1,
     goldenFreq: 1,
+    seriesFreq: 1,
     crit: 1,
     weakSize: 1,
     comboWindow: COMBO_WINDOW_MS,
@@ -1364,7 +1382,8 @@ function comboMult() {
 const chain = { count: 0, lastAt: 0, misses: 0 };
 
 function chainWindow() {
-  return Math.max(CHAIN_WINDOW_MIN, CHAIN_WINDOW_MS - CHAIN_WINDOW_STEP * chain.count) + mods.chainWindow;
+  const easy = Math.max(0, CHAIN_EASY_LINKS - chain.count) * CHAIN_EASY_WINDOW;
+  return Math.max(CHAIN_WINDOW_MIN, CHAIN_WINDOW_MS - CHAIN_WINDOW_STEP * chain.count) + easy + mods.chainWindow;
 }
 
 // Krit-Multiplikator für den nächsten Treffer auf die Schwachstelle
@@ -1374,7 +1393,8 @@ function chainCritMult(count = chain.count) {
 
 function weakRadius() {
   const shrink = Math.max(CHAIN_MIN_SIZE, 1 - CHAIN_SHRINK * mods.chainShrink * chain.count);
-  return WEAKSPOT_RADIUS * mods.weakSize * shrink;
+  const easy = 1 + CHAIN_EASY_SIZE * Math.max(0, CHAIN_EASY_LINKS - chain.count) / CHAIN_EASY_LINKS;
+  return WEAKSPOT_RADIUS * mods.weakSize * shrink * easy;
 }
 
 function breakChain(now) {
@@ -1747,6 +1767,13 @@ const SFX = {
   boss: () => [220, 165, 110].forEach((freq, i) => blip({ freq, to: freq * 0.85, dur: 0.38, type: 'sawtooth', gain: 0.028, delay: i * 0.2 })),
   learn: () => blip({ freq: 740, to: 1180, dur: 0.16, type: 'triangle', gain: 0.04 }),
   vortex: () => [523, 659, 784, 1047, 1319].forEach((freq, i) => blip({ freq, dur: 0.22, type: 'sine', gain: 0.03, delay: i * 0.07 })),
+  // Flow-Serie: jeder Kreis eine Stufe höher (pentatonisch), perfekt mit hellem Oberton
+  flow: (i, perfect) => {
+    const freq = [659, 784, 880, 1047, 1175][Math.min(i, 4)];
+    blip({ freq, to: freq * 1.02, dur: 0.14, type: 'triangle', gain: 0.045 });
+    if (perfect) blip({ freq: freq * 2, dur: 0.18, type: 'sine', gain: 0.022, delay: 0.03 });
+  },
+  flowDone: perfect => (perfect ? [784, 988, 1175, 1568] : [659, 880, 1047]).forEach((freq, i) => blip({ freq, dur: 0.2, type: 'triangle', gain: 0.035, delay: i * 0.06 })),
 };
 
 // Splitter, wenn eine KI fällt
@@ -1934,6 +1961,224 @@ function autoBuy() {
   if (!best) return;
   state.tokens -= costOf(best, 1);
   state.gens[best.id]++;
+}
+
+// ---------- Flow-Serien ----------
+
+const series = { items: [], next: 0, perfect: 0, approach: 0 };
+let nextSeriesAt = Date.now() + randomBetween(6000, 10_000);
+
+// Mit längerer Krit-Kette: mehr Kreise, schnellerer Takt
+function seriesLength() {
+  return chain.count >= 12 ? 5 : chain.count >= 6 ? 4 : 3;
+}
+
+// Am Anfang gemütlich, mit wachsender Kette schneller
+function seriesBeat() {
+  return Math.max(300, 520 - 15 * Math.min(chain.count, 15));
+}
+
+function seriesApproach() {
+  return Math.max(850, 1400 - 25 * Math.min(chain.count, 22));
+}
+
+// Muster der Serie in einem eigenen Koordinatensystem (step = Abstand zweier Kreise)
+const SERIES_PATTERNS = {
+  linie: (n, step) => Array.from({ length: n }, (_, i) => [(i - (n - 1) / 2) * step, 0]),
+  zickzack: (n, step) => Array.from({ length: n }, (_, i) => [(i - (n - 1) / 2) * step * 0.85, (i % 2 ? 1 : -1) * step * 0.4]),
+  bogen: (n, step) => {
+    const spread = Math.min(200, 50 * (n - 1)) * Math.PI / 180;
+    const r = step * (n - 1) / spread;
+    return Array.from({ length: n }, (_, i) => {
+      const a = -spread / 2 + spread * i / (n - 1);
+      return [r * Math.sin(a), r * (1 - Math.cos(a)) - r * 0.25];
+    });
+  },
+  vieleck: (n, step) => {
+    const r = step / (2 * Math.sin(Math.PI / n));
+    return Array.from({ length: n }, (_, i) => [r * Math.sin(2 * Math.PI * i / n), -r * Math.cos(2 * Math.PI * i / n)]);
+  },
+  treppe: (n, step) => Array.from({ length: n }, (_, i) => [(Math.ceil(i / 2) - n / 4) * step * 0.9, (Math.floor(i / 2) - n / 4) * step * 0.75]),
+  pfad: (n, step) => {
+    let x = 0;
+    let y = 0;
+    let dir = Math.random() * Math.PI * 2;
+    return Array.from({ length: n }, (_, i) => {
+      if (i) {
+        dir += randomBetween(-1, 1);
+        x += Math.cos(dir) * step;
+        y += Math.sin(dir) * step;
+      }
+      return [x, y];
+    });
+  },
+};
+// Rhythmus: Abstand vor jedem Kreis in Schlägen (gleichmäßig, Doppeltakt, schneller werdend)
+const SERIES_RHYTHMS = {
+  gleich: i => 1,
+  doppel: i => (i % 2 ? 0.5 : 1),
+  schneller: i => Math.max(0.55, 1 - 0.15 * (i - 1)),
+};
+
+// Kreise (54 px) sollen sich nicht überlappen: zu enge Muster werden neu gewürfelt.
+function seriesPoints(n, box, tries = 0) {
+  const names = Object.keys(SERIES_PATTERNS);
+  const kind = tries >= 6 ? 'linie' : names[Math.floor(Math.random() * names.length)];
+  const step = Math.min(105, box.w * 0.3);
+  // Linien und Bögen liegen eher waagerecht, damit sie auch auf dem Handy in die Arena passen.
+  const free = kind === 'vieleck' || kind === 'pfad';
+  const rot = free ? Math.random() * Math.PI * 2 : randomBetween(-0.35, 0.35) + (Math.random() < 0.5 ? Math.PI : 0);
+  const flip = Math.random() < 0.5 ? -1 : 1;
+  let pts = SERIES_PATTERNS[kind](n, step).map(([x, y]) => [x * Math.cos(rot) - y * flip * Math.sin(rot), x * Math.sin(rot) + y * flip * Math.cos(rot)]);
+  // In die freie Fläche einpassen: notfalls verkleinern, dann verschieben
+  const xs = pts.map(p => p[0]);
+  const ys = pts.map(p => p[1]);
+  const [bx, by] = [Math.min(...xs), Math.min(...ys)];
+  const [bw, bh] = [Math.max(...xs) - bx, Math.max(...ys) - by];
+  const k = Math.min(1, box.w / (bw || 1), box.h / (bh || 1));
+  const ox = box.x + randomBetween(0, box.w - bw * k);
+  const oy = box.y + randomBetween(0, box.h - bh * k);
+  pts = pts.map(([x, y]) => [ox + (x - bx) * k, oy + (y - by) * k]);
+  const tight = pts.some((p, i) => pts.some((q, j) => j > i && Math.hypot(p[0] - q[0], p[1] - q[1]) < 60));
+  return tight && tries < 6 ? seriesPoints(n, box, tries + 1) : { pts, kind };
+}
+
+function spawnSeries() {
+  const arena = $('arena').getBoundingClientRect();
+  const n = seriesLength();
+  const beat = seriesBeat();
+  const approach = seriesApproach();
+  // Freie Fläche: unter den Anzeigen oben, über den Fähigkeiten unten
+  const box = { x: arena.width * 0.12, y: arena.height * 0.22, w: arena.width * 0.76, h: arena.height * 0.5 };
+  const { pts: points } = seriesPoints(n, box);
+  // Am Anfang immer gleichmäßig, später auch Doppeltakt oder schneller werdend
+  const rhythms = chain.count >= 4 || state.seriesDone >= 3 ? Object.keys(SERIES_RHYTHMS) : ['gleich'];
+  const rhythm = SERIES_RHYTHMS[rhythms[Math.floor(Math.random() * rhythms.length)]];
+  let at = 0;
+  const delays = points.map((_, i) => {
+    if (i) at += rhythm(i) * beat;
+    return Math.round(at);
+  });
+  const layer = $('series');
+  layer.replaceChildren();
+  layer.insertAdjacentHTML('beforeend', `<svg class="series-path" viewBox="0 0 ${Math.round(arena.width)} ${Math.round(arena.height)}" aria-hidden="true"><polyline points="${points.map(p => p.map(Math.round).join(',')).join(' ')}"/></svg>`);
+  series.items = points.map(([px, py], i) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'flow';
+    el.style.left = `${px / arena.width * 100}%`;
+    el.style.top = `${py / arena.height * 100}%`;
+    el.style.setProperty('--win', `${approach}ms`);
+    el.setAttribute('aria-label', `Flow-Serie: Kreis ${i + 1} von ${n}`);
+    el.innerHTML = `<span class="flow-ring"></span><span class="flow-num">${i + 1}</span>`;
+    const item = { el, x: px / arena.width * 100, y: py / arena.height * 100, appearAt: 0, deadline: Infinity, done: false, timer: 0 };
+    el.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      lastPointerType = e.pointerType;
+      hitSeries(item);
+    });
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      if (e.detail === 0) hitSeries(item);
+    });
+    layer.append(el);
+    // Die Kreise erscheinen nacheinander im Takt.
+    item.timer = setTimeout(() => {
+      item.appearAt = Date.now();
+      item.deadline = item.appearAt + approach + SERIES_GRACE_MS;
+      el.classList.add('live');
+    }, delays[i]);
+    return item;
+  });
+  series.next = 0;
+  series.perfect = 0;
+  series.approach = approach;
+  if (state.seriesDone < 2) popup('Tippe 1 · 2 · 3 im Takt', 'limit', 50, 12);
+}
+
+// Ein Kreis der Serie zählt wie ein gezielter Treffer: Combo, Krit-Kette und Krit-Schaden.
+function hitSeries(item) {
+  const i = series.items.indexOf(item);
+  if (i < 0 || i !== series.next || !item.appearAt || item.done) return;
+  const now = Date.now();
+  clock = now;
+  item.done = true;
+  series.next++;
+  const perfect = now >= item.appearAt + series.approach - SERIES_PERFECT_MS;
+  if (perfect) series.perfect++;
+  item.el.classList.add('hit');
+  item.el.classList.toggle('perfect', perfect);
+  setTimeout(() => item.el.remove(), 420);
+  if (now - combo.lastAt > mods.comboWindow) combo.count = 0;
+  combo.count++;
+  combo.lastAt = now;
+  state.maxCombo = Math.max(state.maxCombo, combo.count);
+  missionProgress('combo', combo.count, true);
+  state.clicks++;
+  missionProgress('taps');
+  const critMult = chainCritMult();
+  chain.count++;
+  chain.lastAt = now;
+  state.bestChain = Math.max(state.bestChain, chain.count);
+  missionProgress('chain', chain.count, true);
+  state.crits++;
+  missionProgress('crits');
+  const focus = skillActive('focus', now) ? skillPower('focus') : 1;
+  const dmg = clickValue(now) * comboMult() * focus * critMult * (perfect ? SERIES_PERFECT_MULT : 1) * damageFactor('tap');
+  popup(`${perfect ? 'Perfekt' : 'Treffer'} −${fmt(dmg, 1)}`, perfect ? 'crit perfect' : 'crit', item.x, item.y - 10);
+  SFX.flow(i, perfect);
+  haptic();
+  restartAnimation($('glyph'), 'hit');
+  attack(dmg);
+  if (series.next >= series.items.length) finishSeries(now);
+  render();
+}
+
+// Ganze Serie geschafft: Bonusschlag, perfekt doppelt so stark
+function finishSeries(now) {
+  const n = series.items.length;
+  const allPerfect = series.perfect === n;
+  state.seriesDone++;
+  if (allPerfect) state.seriesPerfect++;
+  missionProgress('series');
+  const dmg = clickValue(now) * comboMult() * chainCritMult() * n * (allPerfect ? 2 : 1) * damageFactor('tap');
+  popup(`${allPerfect ? 'Perfekte Serie' : 'Serie'} ×${n} · −${fmt(dmg, 1)}`, 'crit huge', 50, 26);
+  restartAnimation($('arena'), 'flash');
+  restartAnimation($('arena'), 'shake');
+  SFX.flowDone(allPerfect);
+  attack(dmg);
+  endSeries(now, null);
+}
+
+// Ende der Serie; missed: der verpasste Kreis (nur ein Hinweis, keine Strafe)
+function endSeries(now, missed) {
+  for (const item of series.items) {
+    clearTimeout(item.timer);
+    if (!item.done) {
+      item.el.classList.add('missed');
+      setTimeout(() => item.el.remove(), 320);
+    }
+  }
+  const path = $('series').querySelector('.series-path');
+  if (path) {
+    path.classList.add('out');
+    setTimeout(() => path.remove(), 320);
+  }
+  if (missed) popup('Verpasst', 'blocked', missed.x, missed.y - 8);
+  series.items = [];
+  nextSeriesAt = now + randomBetween(SERIES_MIN_MS, SERIES_MAX_MS) / mods.seriesFreq;
+}
+
+function updateSeries(now) {
+  if (series.items.length) {
+    // Bosskampf oder Tab im Hintergrund: Serie still beenden
+    if (state.boss || document.hidden) return endSeries(now, null);
+    const item = series.items[series.next];
+    if (item && now > item.deadline) endSeries(now, item);
+    return;
+  }
+  if (now >= nextSeriesAt && !state.boss && !document.hidden && state.clicks >= 10) spawnSeries();
 }
 
 // ---------- Angriffe des Wochenlimits ----------
@@ -2923,6 +3168,7 @@ function renderStats(now) {
     ['Kritische Treffer', fmt(state.crits)],
     ['Beste Combo', fmt(state.maxCombo)],
     ['Beste Krit-Kette', fmt(state.bestChain)],
+    ['Flow-Serien (perfekt)', `${fmt(state.seriesDone)} (${fmt(state.seriesPerfect)})`],
     ['Ultra-KIs vor dem Launch', fmt(state.ultraWins)],
     ['Aufträge erledigt', fmt(state.missionsDone)],
     ['Fähigkeiten eingesetzt', fmt(state.skillUses)],
@@ -3268,6 +3514,7 @@ function tick() {
   checkBoss(now);
   checkFleeting(now);
   updateAttacks(now);
+  updateSeries(now);
   if (now - lastAutoPopup >= 1000 && currentDps(now) > 0) {
     lastAutoPopup = now;
     popup(`−${fmt(currentDps(now), 1)}`, 'auto', randomBetween(30, 70), randomBetween(55, 75));
