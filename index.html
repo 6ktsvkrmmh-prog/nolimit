@@ -160,7 +160,8 @@
       </div>
     </section>
 
-    <section class="card side">
+    <section id="side" class="card side">
+      <div id="sheet-handle" class="sheet-handle" aria-hidden="true"><span></span></div>
       <div class="segmented tabs" role="tablist" aria-label="Bereiche">
         <button role="tab" data-tab="helpers" aria-selected="true"><span class="tab-icon" data-icon="agents"></span><span class="tab-label">Helfer</span></button>
         <button role="tab" data-tab="skills" aria-selected="false"><span class="tab-icon" data-icon="storm"></span><span class="tab-label"><span class="tab-long">Fähigkeiten</span><span class="tab-short">Skills</span></span></button>
@@ -170,9 +171,10 @@
         <button role="tab" data-tab="more" aria-selected="false"><span class="tab-icon" data-icon="more"></span><span class="tab-label">Mehr</span></button>
       </div>
 
+      <div id="side-body" class="side-body">
       <div id="tab-helpers" class="tab" role="tabpanel">
         <div class="tab-head">
-          <span class="muted small">Helfer greifen automatisch an</span>
+          <span id="helpers-summary" class="muted small">Helfer greifen automatisch an</span>
           <div class="segmented segmented-small" role="group" aria-label="Kaufmenge">
             <button data-amount="1">1×</button>
             <button data-amount="10">10×</button>
@@ -301,6 +303,7 @@
           </div>
           <p class="muted small">Wird automatisch alle 10 Sekunden im Browser gespeichert.</p>
         </div>
+      </div>
       </div>
     </section>
   </main>

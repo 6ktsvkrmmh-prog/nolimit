@@ -442,6 +442,7 @@ button { font: inherit; color: inherit; }
 .row {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
+  position: relative;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -1187,6 +1188,25 @@ button { font: inherit; color: inherit; }
 /* ---------- Dark Vortex: super seltene Varianten ---------- */
 .enemy.vortex::before { background: radial-gradient(circle, rgba(123, 47, 247, 0.45), transparent 62%); }
 .tag.vortex { background: linear-gradient(135deg, #1a0533, #7b2ff7); color: #fff; }
+.tag.rare { background: linear-gradient(135deg, #0a84ff, #5e5ce6); color: #fff; }
+.tag.epic { background: linear-gradient(135deg, #ff9f0a, #ff375f 55%, #bf5af2); color: #fff; box-shadow: 0 2px 10px rgba(255, 55, 95, 0.3); }
+/* Seltenheit in der Sammlung */
+.dex-item { position: relative; }
+.dex-item.rarity-rare .dex-logo::before, .dex-item.rarity-epic .dex-logo::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  bottom: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #0a84ff;
+  box-shadow: 0 0 0 2px var(--fill);
+}
+.dex-item.rarity-epic .dex-logo::before { background: linear-gradient(135deg, #ffcc00, #ff375f); }
+.dex-logo { position: relative; }
+.dex-item.unknown.rarity-rare .dex-logo { box-shadow: inset 0 0 0 1.5px rgba(10, 132, 255, 0.45); }
+.dex-item.unknown.rarity-epic .dex-logo { box-shadow: inset 0 0 0 1.5px rgba(255, 159, 10, 0.6); }
 .dex-item.has-vortex { cursor: pointer; border-radius: 12px; }
 .dex-item.has-vortex .dex-logo { position: relative; }
 .dex-normal, .dex-vortex { display: block; width: 100%; height: 100%; transition: opacity 0.3s, transform 0.45s var(--spring); }
@@ -1467,6 +1487,112 @@ button { font: inherit; color: inherit; }
   .pill-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
   .price-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(217, 119, 87, 0.4); }
   .dock-skill:not(.locked):hover { transform: translateY(-3px) scale(1.06); }
+}
+
+/* ---------- Struktur: Helfer-Zeilen ---------- */
+.tile-wrap { position: relative; display: block; width: 38px; height: 38px; }
+.tile-count {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--text);
+  color: var(--card);
+  font: 700 0.62rem/19px var(--font-num);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--fill);
+}
+.tile-count.bump { animation: bump 0.32s var(--spring); }
+.rec-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font: 700 0.64rem/1.5 var(--font);
+  letter-spacing: 0.01em;
+}
+.row.recommended:not(:disabled) { background: linear-gradient(90deg, var(--accent-soft), transparent 55%); }
+.gen-up {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 24px);
+  margin: -4px 12px 8px 62px;
+  width: auto;
+  padding: 7px 8px 7px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--card);
+  text-align: left;
+  font-size: 0.78rem;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  animation: stripIn 0.35s var(--spring);
+  transition: transform 0.15s var(--spring), box-shadow 0.2s;
+}
+.gen-up-icon { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.85rem; }
+.gen-up-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.gen-up-text strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gen-up-text span { color: var(--accent-ink); font-weight: 600; font-size: 0.72rem; }
+.gen-up:disabled { cursor: default; }
+.gen-up:disabled .price { background: var(--fill-2); color: var(--muted); box-shadow: none; }
+.gen-up:not(:disabled) .price { background: var(--accent); color: var(--on-accent); }
+.gen-up.bought { animation: cardBought 0.38s var(--ease) forwards; }
+@keyframes stripIn { from { opacity: 0; transform: translateY(-6px) scale(0.97); } }
+@media (hover: hover) {
+  .gen-up:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1); }
+}
+.row + .gen-up + .row, .gen-up[hidden] + .row { box-shadow: inset 0 1px 0 var(--line); }
+
+/* Tab-Wechsel gleitet in Richtung des neuen Tabs */
+.side-body { display: flex; flex-direction: column; gap: 14px; }
+.side-body[data-dir="right"] .tab { animation-name: tabInRight; }
+.side-body[data-dir="left"] .tab { animation-name: tabInLeft; }
+@keyframes tabInRight { from { opacity: 0; transform: translateX(24px); } }
+@keyframes tabInLeft { from { opacity: 0; transform: translateX(-24px); } }
+.sheet-handle { display: none; }
+
+/* Desktop: Die rechte Karte bleibt stehen, nur ihr Inhalt scrollt – die Tabs immer im Blick */
+@media (min-width: 901px) and (min-height: 640px) {
+  .side { position: sticky; top: 20px; max-height: calc(100vh - 40px); }
+  .side-body { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -14px -14px; padding: 2px 14px 14px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--fill-2) transparent; }
+}
+
+/* Handy: Menü als Karte von unten, Tab-Leiste am unteren Rand */
+@media (max-width: 900px) {
+  .side {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 35;
+    height: var(--sheet-h, 92px);
+    padding: 0 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    gap: 0;
+    border-radius: 24px 24px 0 0;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    backdrop-filter: blur(28px) saturate(1.8);
+    box-shadow: 0 -1px 0 var(--line), 0 -14px 40px rgba(0, 0, 0, 0.14);
+    overflow: hidden;
+    transition: height 0.5s var(--spring);
+  }
+  .side.dragging { transition: none; }
+  .sheet-handle { display: grid; place-items: center; flex: none; height: 22px; margin: 0 -12px; cursor: grab; touch-action: none; }
+  .sheet-handle span { width: 40px; height: 5px; border-radius: 3px; background: var(--fill-2); transition: background 0.2s, width 0.3s var(--spring); }
+  .side.dragging .sheet-handle span { width: 54px; background: var(--muted); }
+  .side .tabs { order: 3; flex: none; margin-top: 8px; }
+  .side-body { order: 2; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 2px 10px; }
+  .side:not(.open) .side-body { visibility: hidden; }
+  body { padding-bottom: calc(var(--sheet-min, 92px) + 8px); }
+  .toasts { bottom: calc(var(--sheet-h, 92px) + 12px); transition: bottom 0.45s var(--spring); }
+  .app { padding-bottom: 8px; }
 }
 
 /* ---------- Prestige & Fähigkeitenbaum ---------- */

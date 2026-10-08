@@ -205,7 +205,34 @@ const MODELS = [
   { name: 'Rauschmodell', family: 'spiral', hue: 290, wave: 43, trait: 'glitch', quip: 'Hört Muster im weißen Rauschen.' },
   { name: 'NDA-tron', family: 'pixel', hue: 220, wave: 45, trait: 'silence', quip: 'Alles vertraulich, auch deine Knöpfe.' },
   { name: 'Gegenspieler', family: 'pixel', hue: 5, wave: 46, trait: 'harden', quip: 'Trainiert gegen dich, während du tippst.' },
+  // Episch: sehr selten, für die Sammlung
+  { name: 'Allwissend', family: 'orb', hue: 48, wave: 8, rarity: 'epic', quip: 'Weiß alles. Außer, wann es aufhören soll.' },
+  { name: 'Kontextkaiser', family: 'monogram', hue: 280, wave: 11, rarity: 'epic', quip: 'Regiert über eine Million Tokens.' },
+  { name: 'Ghostwriter', family: 'chatspark', hue: 230, wave: 14, rarity: 'epic', trait: 'stealth', quip: 'Schreibt deine E-Mails. Und deine Kündigung.' },
+  { name: 'Overclocker', family: 'bolt', hue: 14, wave: 17, rarity: 'epic', trait: 'teleport', quip: 'Läuft auf 110 %. Immer.' },
+  { name: 'Paradoxon', family: 'loop', hue: 300, wave: 20, rarity: 'epic', trait: 'decoy', quip: 'Diese Aussage ist falsch.' },
+  { name: 'Singularix', family: 'eclipse', hue: 255, wave: 23, rarity: 'epic', trait: 'harden', quip: 'Ist schon da. Du hast es nur noch nicht bemerkt.' },
+  { name: 'Datensauger', family: 'swirl', hue: 165, wave: 26, rarity: 'epic', trait: 'greedy', quip: 'Hat deine Cookies gegessen.' },
+  { name: 'Promptwizard', family: 'sparkle', hue: 270, wave: 29, rarity: 'epic', quip: 'Zaubert aus drei Wörtern ein Epos.' },
+  { name: 'Feedbackloop', family: 'spiral', hue: 330, wave: 32, rarity: 'epic', trait: 'swarm', quip: 'Lobt sich selbst. Lobt sich selbst.' },
+  { name: 'Halluzinator Prime', family: 'starburst', hue: 0, wave: 35, rarity: 'epic', quip: 'Erfindet jetzt auch die Fragen.' },
+  { name: 'Nullpointer', family: 'code', hue: 185, wave: 38, rarity: 'epic', trait: 'glitch', quip: 'Zeigt auf nichts. Sehr überzeugend.' },
+  { name: 'Turing-Test', family: 'eye', hue: 140, wave: 41, rarity: 'epic', trait: 'shield', quip: 'Besteht ihn. Behauptet es zumindest.' },
+  { name: 'Tensorgott', family: 'cube', hue: 40, wave: 44, rarity: 'epic', trait: 'armored', quip: 'Rechnet in Dimensionen, die es nicht gibt.' },
+  { name: 'Vektorfee', family: 'bloom', hue: 195, wave: 47, rarity: 'epic', quip: 'Bringt alles zusammen, was irgendwie ähnlich ist.' },
+  { name: 'Endgegner', family: 'prism', hue: 350, wave: 50, rarity: 'epic', trait: 'regen', quip: 'Wartet am Ende jeder Pipeline.' },
 ];
+const NEW_GEN_START = 64;   // ab hier: die neue Generation (selten)
+// Seltenheit: wie oft eine KI im Vergleich auftaucht
+const RARITIES = {
+  common: { weight: 1, name: '' },
+  rare: { weight: 0.3, name: 'Selten' },
+  epic: { weight: 0.15, name: 'Episch' },
+};
+
+function modelRarity(index) {
+  return MODELS[index].rarity || (index >= NEW_GEN_START ? 'rare' : 'common');
+}
 const BOSS = { name: 'Das Wochenlimit', family: 'boss', hue: 354, quip: 'Sieben Tage. Ein Limit. Kein Entkommen.' };
 
 // Fester Seed pro Modell für die Sammlung, damit jedes Modell dort immer gleich aussieht.
@@ -747,9 +774,24 @@ function rollTrait(kind, wave, index) {
 // highest: höchste je erreichte Welle – bis dahin ist die neue Generation freigeschaltet.
 function newEnemy(wave, index, highest = wave) {
   const reach = Math.max(wave, highest);
+  // Gewichtet nach Seltenheit: Neue Generation selten, epische KIs sehr selten
   const pool = [];
-  MODELS.forEach((m, i) => { if ((m.wave || 1) <= reach) pool.push(i); });
-  const kind = pool[Math.floor(Math.random() * pool.length)];
+  let total = 0;
+  MODELS.forEach((m, i) => {
+    if ((m.wave || 1) > reach) return;
+    const weight = RARITIES[modelRarity(i)].weight;
+    pool.push([i, weight]);
+    total += weight;
+  });
+  let pick = Math.random() * total;
+  let kind = pool[pool.length - 1][0];
+  for (const [i, weight] of pool) {
+    pick -= weight;
+    if (pick <= 0) {
+      kind = i;
+      break;
+    }
+  }
   return {
     kind,
     seed: Math.floor(Math.random() * 2 ** 31),
@@ -1925,41 +1967,99 @@ const PARTICLE_SHAPES = {
   ring: ['orb', 'planet', 'dotring', 'atom', 'eye', 'aperture', 'borromean', 'loop', 'knot', 'trefoil'],
   line: ['voice', 'signal', 'swirl', 'spiral', 'chevron', 'pinwheel'],
 };
-const field = { list: [], hue: 20, targetHue: 20, shape: 'dot', mode: 'drift', canvas: null, ctx: null, w: 0, h: 0, last: 0 };
+// Bewegung je Logo-Bauart: funkeln, kreisen, rieseln, treiben, ausstrahlen oder aufsteigen
+const PARTICLE_MOTIONS = {
+  twinkle: ['sparkle', 'starburst', 'sparkring', 'compass', 'gem'],
+  orbit: ['orb', 'planet', 'atom', 'swirl', 'spiral', 'loop', 'eclipse', 'borromean'],
+  fall: ['pixel', 'code', 'cube', 'hourglass', 'monogram'],
+  drift: ['voice', 'signal', 'chevron', 'leaves', 'pinwheel'],
+  pulse: ['hexnode', 'molecule', 'dotring', 'eye', 'aperture', 'bloom', 'clover'],
+};
+const SHAPE_KEYS = ['dot', 'spark', 'square', 'ring', 'line'];
+const field = { list: [], hue: 20, targetHue: 20, profile: null, canvas: null, ctx: null, w: 0, h: 0, last: 0 };
 
 function particleShape(family) {
   return Object.keys(PARTICLE_SHAPES).find(k => PARTICLE_SHAPES[k].includes(family)) || 'dot';
 }
 
+// Jede KI hat ihr eigenes, festes Profil (aus ihrem Sammlungs-Seed): Form, Zweitform, Zweitfarbe, Tempo, Dichte
 function setParticleTheme(t) {
-  field.targetHue = t.isBoss ? 8 : t.vortex ? 278 : t.hue;
-  field.shape = t.isBoss ? 'dot' : particleShape(t.model.family);
-  field.mode = t.isBoss ? 'ember' : t.vortex ? 'vortex' : 'drift';
+  field.targetHue = t.isBoss ? 8 : t.hue;
+  if (t.isBoss) {
+    field.profile = { motion: 'ember', shape: 'dot', shape2: 'spark', mix: 0.2, hue2: 30, speed: 1, size: 1, density: 1.2, dir: 1, jitter: false };
+    return;
+  }
+  const kind = state.enemy.kind;
+  const rand = mulberry32(catalogSeed(kind) ^ 0x2545f491);
+  const family = t.model.family;
+  const motion = t.vortex ? 'vortex' : Object.keys(PARTICLE_MOTIONS).find(k => PARTICLE_MOTIONS[k].includes(family)) || 'rise';
+  const shape = particleShape(family);
+  const others = SHAPE_KEYS.filter(k => k !== shape);
+  field.profile = {
+    motion,
+    shape,
+    shape2: others[Math.floor(rand() * others.length)],
+    mix: rand() * 0.35,
+    hue2: (rand() - 0.5) * 140,
+    speed: 0.7 + rand() * 0.8,
+    size: 0.8 + rand() * 0.6,
+    density: (0.75 + rand() * 0.6) * (modelRarity(kind) === 'epic' ? 1.3 : 1),
+    dir: rand() > 0.5 ? 1 : -1,
+    jitter: t.trait === 'glitch',
+  };
 }
 
 function newParticle(initial) {
-  const { w, h, mode } = field;
+  const { w, h } = field;
+  const pr = field.profile || { motion: 'rise', shape: 'dot', shape2: 'dot', mix: 0, hue2: 0, speed: 1, size: 1, dir: 1 };
+  const alt = Math.random() < pr.mix;
   const p = {
-    x: Math.random() * w,
-    y: initial ? Math.random() * h : h + 10,
-    vy: -(mode === 'ember' ? randomBetween(26, 60) : randomBetween(7, 20)),
-    sway: randomBetween(4, 14),
-    phase: Math.random() * Math.PI * 2,
-    size: mode === 'ember' ? randomBetween(1.2, 3) : randomBetween(1.6, 4.2),
+    motion: pr.motion,
+    shape: alt ? pr.shape2 : pr.shape,
+    hueShift: (alt ? pr.hue2 : 0) + randomBetween(-14, 14),
+    size: randomBetween(1.6, 4) * pr.size,
     rot: Math.random() * Math.PI,
     spin: randomBetween(-0.8, 0.8),
+    phase: Math.random() * Math.PI * 2,
     age: 0,
     life: randomBetween(4, 9),
-    shape: field.shape,
-    hueShift: randomBetween(-18, 18),
-    // Vortex: Bahn um die Mitte
+    x: Math.random() * w,
+    y: Math.random() * h,
+    vx: 0,
+    vy: 0,
+    sway: randomBetween(4, 14),
     angle: Math.random() * Math.PI * 2,
-    radius: randomBetween(40, Math.max(w, h) * 0.6),
+    radius: randomBetween(50, Math.min(w, h) * 0.6),
+    spinSpeed: randomBetween(0.15, 0.4) * pr.speed * pr.dir,
   };
+  const speed = pr.speed;
+  if (p.shape === 'spark') p.size *= 1.45;
+  // Steigen, Rieseln und Treiben: neue Teilchen blenden irgendwo in der Arena ein, damit alles gleichmäßig gefüllt bleibt.
+  if (p.motion === 'rise') {
+    p.vy = -randomBetween(8, 20) * speed;
+  } else if (p.motion === 'fall') {
+    p.vy = randomBetween(12, 26) * speed;
+    p.spin = 0;
+    p.rot = 0;
+  } else if (p.motion === 'drift') {
+    p.vx = pr.dir * randomBetween(14, 30) * speed;
+    p.life = randomBetween(6, 12);
+  } else if (p.motion === 'twinkle') {
+    p.life = randomBetween(1.6, 3.2);
+  } else if (p.motion === 'pulse') {
+    p.radius = initial ? randomBetween(30, Math.max(w, h) * 0.5) : randomBetween(30, 60);
+    p.vr = randomBetween(18, 36) * speed;
+  } else if (p.motion === 'ember') {
+    if (!initial) p.y = h + 10;
+    p.vy = -randomBetween(26, 60);
+    p.size = randomBetween(1.2, 3);
+  } else if (p.motion === 'vortex') {
+    p.radius = randomBetween(40, Math.max(w, h) * 0.6);
+  }
   return p;
 }
 
-function drawParticle(ctx, p, x, y, alpha, light) {
+function drawParticle(ctx, p, x, y, alpha, light, scale = 1) {
   ctx.globalAlpha = alpha;
   const color = `hsl(${(field.hue + p.hueShift + 360) % 360}, 88%, ${light}%)`;
   ctx.fillStyle = color;
@@ -1967,7 +2067,7 @@ function drawParticle(ctx, p, x, y, alpha, light) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(p.rot);
-  const s = p.size;
+  const s = p.size * scale;
   if (p.shape === 'spark') {
     ctx.beginPath();
     ctx.moveTo(0, -s * 1.8);
@@ -2013,8 +2113,12 @@ function particleFrame(ts) {
     field.h = h;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
-    field.list = Array.from({ length: Math.round(w / 20) }, () => newParticle(true));
+    field.list = [];
   }
+  // Die Dichte gleitet mit: fehlende Teilchen kommen nach und nach, überzählige vergehen
+  const target = Math.round(w / 20 * (field.profile?.density || 1));
+  if (!field.list.length) field.list = Array.from({ length: target }, () => newParticle(true));
+  else if (field.list.length < target) field.list.push(newParticle(false));
   // Farbton weich zum Ziel (kürzester Weg auf dem Farbkreis)
   const diff = ((field.targetHue - field.hue + 540) % 360) - 180;
   field.hue = (field.hue + diff * Math.min(1, dt * 2.5) + 360) % 360;
@@ -2025,26 +2129,55 @@ function particleFrame(ts) {
     || (document.documentElement.dataset.theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const maxAlpha = dark ? 0.55 : 0.42;
   const light = dark ? 68 : 58;
-  field.list.forEach((p, i) => {
+  const jitter = field.profile?.jitter;
+  for (let i = field.list.length - 1; i >= 0; i--) {
+    const p = field.list[i];
     p.age += dt;
     p.rot += p.spin * dt;
-    let x;
-    let y;
-    if (field.mode === 'vortex') {
-      p.angle += dt * (0.5 + 40 / p.radius);
-      p.radius = Math.max(8, p.radius - dt * 14);
-      x = w / 2 + Math.cos(p.angle) * p.radius;
-      y = h / 2 + Math.sin(p.angle) * p.radius * 0.8;
-    } else {
-      p.y += p.vy * dt;
-      x = p.x + Math.sin(p.age * 1.3 + p.phase) * p.sway;
-      y = p.y;
+    let x = p.x;
+    let y = p.y;
+    let scale = 1;
+    switch (p.motion) {
+      case 'orbit':
+        p.angle += p.spinSpeed * dt;
+        x = w / 2 + Math.cos(p.angle) * p.radius;
+        y = h / 2 + Math.sin(p.angle) * p.radius * 0.72;
+        break;
+      case 'pulse':
+        p.radius += p.vr * dt;
+        x = w / 2 + Math.cos(p.angle) * p.radius;
+        y = h / 2 + Math.sin(p.angle) * p.radius * 0.8;
+        break;
+      case 'vortex':
+        p.angle += dt * (0.5 + 40 / p.radius);
+        p.radius = Math.max(8, p.radius - dt * 14);
+        x = w / 2 + Math.cos(p.angle) * p.radius;
+        y = h / 2 + Math.sin(p.angle) * p.radius * 0.8;
+        break;
+      case 'drift':
+        p.x += p.vx * dt;
+        x = p.x;
+        y = p.y + Math.sin(p.age * 1.6 + p.phase) * p.sway;
+        break;
+      case 'twinkle':
+        scale = 0.4 + 0.6 * Math.sin(Math.PI * Math.min(1, p.age / p.life));
+        break;
+      default:
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        x = p.x + Math.sin(p.age * 1.3 + p.phase) * p.sway;
+        y = p.y;
     }
+    if (jitter && Math.random() < 0.04) x += randomBetween(-6, 6);
     const fade = Math.min(1, p.age / 1.2, (p.life - p.age) / 1.5);
-    const flicker = field.mode === 'ember' ? 0.65 + 0.35 * Math.sin(p.age * 12 + p.phase) : 1;
-    if (fade > 0) drawParticle(ctx, p, x, y, maxAlpha * fade * flicker, light);
-    if (p.age >= p.life || y < -12 || (field.mode === 'vortex' && p.radius <= 8)) field.list[i] = newParticle(false);
-  });
+    const flicker = p.motion === 'ember' ? 0.65 + 0.35 * Math.sin(p.age * 12 + p.phase) : 1;
+    if (fade > 0) drawParticle(ctx, p, x, y, maxAlpha * fade * flicker, light, scale);
+    const gone = p.age >= p.life || y < -14 || y > h + 14 || x < -14 || x > w + 14 || (p.motion === 'vortex' && p.radius <= 8);
+    if (gone) {
+      if (field.list.length > target) field.list.splice(i, 1);
+      else field.list[i] = newParticle(false);
+    }
+  }
   ctx.globalAlpha = 1;
 }
 
@@ -2894,7 +3027,8 @@ function updateGolden(now) {
   const el = $('golden');
   if (el.hidden && now >= nextGoldenAt) {
     el.style.left = `${randomBetween(5, 88)}vw`;
-    el.style.top = `${randomBetween(15, 80)}vh`;
+    const bottomFree = sheetMode() ? ($('side').offsetHeight + 70) / window.innerHeight * 100 : 20;
+    el.style.top = `${randomBetween(15, Math.max(20, 100 - bottomFree))}vh`;
     el.hidden = false;
     goldenHideAt = now + GOLDEN_LIFETIME_MS;
   } else if (!el.hidden && now >= goldenHideAt) {
@@ -3322,7 +3456,7 @@ function buildGenerators() {
     const btn = document.createElement('button');
     btn.className = 'row';
     btn.innerHTML = `
-      <span class="tile"></span>
+      <span class="tile-wrap"><span class="tile"></span><span class="tile-count" hidden></span></span>
       <span class="row-main">
         <span class="row-title"><span class="gen-name"></span><span class="row-count"></span></span>
         <span class="row-sub gen-desc"></span>
@@ -3331,9 +3465,19 @@ function buildGenerators() {
       </span>
       <span class="price"><span class="price-qty"></span><span class="price-val"></span>${icon('token')}</span>`;
     btn.addEventListener('click', () => buyGenerator(g));
-    container.append(btn);
-    genEls.set(g.id, {
+    // Das nächste Upgrade dieses Helfers, direkt zum Antippen
+    const strip = document.createElement('button');
+    strip.className = 'gen-up';
+    strip.hidden = true;
+    strip.innerHTML = `<span class="gen-up-icon">${icon('trend')}</span><span class="gen-up-text"></span><span class="price gen-up-price"></span>`;
+    container.append(btn, strip);
+    const entry = {
       btn,
+      strip,
+      stripText: strip.querySelector('.gen-up-text'),
+      stripPrice: strip.querySelector('.gen-up-price'),
+      upgrade: null,
+      badge: btn.querySelector('.tile-count'),
       revealed: null,
       tile: btn.querySelector('.tile'),
       name: btn.querySelector('.gen-name'),
@@ -3343,7 +3487,13 @@ function buildGenerators() {
       qty: btn.querySelector('.price-qty'),
       cost: btn.querySelector('.price-val'),
       progress: btn.querySelector('.buy-progress span'),
+    };
+    strip.addEventListener('click', () => {
+      if (!entry.upgrade) return;
+      restartAnimation(strip, 'bought');
+      buyUpgrade(entry.upgrade);
     });
+    genEls.set(g.id, entry);
   }
 }
 
@@ -3366,6 +3516,14 @@ function generatorRevealed(g, i) {
 
 function renderGenerators() {
   let prevRevealed = true;
+  // Empfehlung: der Helfer mit dem meisten Schaden pro Token
+  const revealedGens = GENERATORS.filter((g, i) => generatorRevealed(g, i));
+  const best = revealedGens.length > 1
+    ? revealedGens.reduce((a, b) => (unitRate(b) / costOf(b, 1) > unitRate(a) / costOf(a, 1) ? b : a))
+    : null;
+  const total = totalGenerators(state);
+  const summary = total ? `${fmt(total)} Helfer · ${fmt(baseDps(), 1)} Schaden/s` : 'Helfer greifen automatisch an';
+  if ($('helpers-summary').textContent !== summary) $('helpers-summary').textContent = summary;
   GENERATORS.forEach((g, i) => {
     const el = genEls.get(g.id);
     const revealed = generatorRevealed(g, i);
@@ -3383,7 +3541,28 @@ function renderGenerators() {
     const n = amountToBuy(g);
     const cost = costOf(g, n);
     el.btn.disabled = !revealed || state.tokens < cost;
-    el.count.textContent = state.gens[g.id] > 0 ? `×${state.gens[g.id]}` : '';
+    const owned = state.gens[g.id];
+    el.badge.hidden = owned === 0;
+    if (el.badge.textContent !== String(owned)) {
+      el.badge.textContent = fmt(owned);
+      if (owned > 0) restartAnimation(el.badge, 'bump');
+    }
+    const recommended = best === g;
+    if (el.btn.classList.contains('recommended') !== recommended) {
+      el.btn.classList.toggle('recommended', recommended);
+      el.count.innerHTML = recommended ? '<span class="rec-tag">Empfohlen</span>' : '';
+    }
+    const up = revealed ? UPGRADES.find(u => u.id.startsWith(`${g.id}-`) && !state.upgrades.has(u.id) && u.unlocked(state)) : null;
+    el.upgrade = up || null;
+    el.strip.hidden = !up || el.btn.hidden;
+    if (up) {
+      if (el.strip.dataset.id !== up.id) {
+        el.strip.dataset.id = up.id;
+        el.stripText.innerHTML = `<strong>${up.name}</strong><span>${up.effect}</span>`;
+        el.stripPrice.innerHTML = `${fmt(upgradeCost(up))}${icon('token')}`;
+      }
+      el.strip.disabled = state.tokens < upgradeCost(up);
+    }
     // Was der Kauf bringt, und ab wann das nächste Upgrade für diesen Helfer kommt
     const nextTier = TIER_OWNED.find(t => t > state.gens[g.id]);
     const rateText = revealed ? `+${fmt(unitRate(g) * n, 1)} Schaden/s` : '';
@@ -3448,10 +3627,11 @@ function renderDex() {
     const known = state.discovered.has(i);
     const vortex = state.vortex.has(i);
     const item = document.createElement('div');
-    item.className = `dex-item${known ? '' : ' unknown'}${vortex ? ' has-vortex' : ''}`;
+    item.className = `dex-item${known ? '' : ' unknown'}${vortex ? ' has-vortex' : ''} rarity-${modelRarity(i)}`;
     item.title = known
       ? `${m.name} – ${m.quip}${vortex ? ' · Dark Vortex gesammelt' : ''}`
       : (m.wave || 1) > state.highestWave ? `Taucht ab Welle ${m.wave} auf` : 'Noch nicht entdeckt';
+    if (modelRarity(i) !== 'common') item.title += ` · ${RARITIES[modelRarity(i)].name}`;
     const logo = known ? logoSvg(m.family, m.hue, catalogSeed(i), { still: true, letter: m.name[0] }) : icon('question');
     // Gesammelte Dark-Vortex-Variante: beim Drüberfahren (oder Antippen) sichtbar
     item.innerHTML = vortex
@@ -3506,8 +3686,13 @@ function renderEnemy(now) {
     teleportAt = now;
     $('enemy-name').textContent = t.name;
     $('enemy-quip').textContent = t.model.quip;
-    $('enemy-tag').textContent = t.vortex ? `Dark Vortex · ${t.tag}` : isNew ? `Neu · ${t.tag}` : t.tag;
-    $('enemy-tag').className = `tag ${t.vortex ? 'vortex' : isNew ? 'new' : t.tagClass}`;
+    const rarity = t.isBoss ? 'common' : modelRarity(state.enemy.kind);
+    $('enemy-tag').textContent = [t.vortex ? 'Dark Vortex' : '', isNew ? 'Neu' : '', RARITIES[rarity].name, t.tag].filter(Boolean).join(' · ');
+    $('enemy-tag').className = `tag ${t.vortex ? 'vortex' : rarity !== 'common' ? rarity : isNew ? 'new' : t.tagClass}`;
+    if (isNew && rarity !== 'common' && !quiet) {
+      toast(`<strong>${rarity === 'epic' ? 'Epische' : 'Seltene'} KI entdeckt: ${t.model.name}</strong><br><span class="muted">${t.model.quip}</span>`, 'sparkle');
+      SFX.vortex();
+    }
     $('meter-label').textContent = t.meter.label;
     const trait = t.isBoss ? BOSS_TRAIT : t.trait ? TRAITS[t.trait] : null;
     $('enemy-traits').hidden = !trait;
@@ -3880,6 +4065,95 @@ function renderPrestige() {
   renderTree();
 }
 
+const TAB_ORDER = ['helpers', 'skills', 'upgrades', 'prestige', 'missions', 'more'];
+
+// ---------- Handy: Menü als Karte von unten ----------
+// Zugeklappt sieht man nur die Tab-Leiste; halb offen bleibt die Arena darüber frei.
+const sheet = { level: 0 };
+
+function sheetMode() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
+function sheetHeights() {
+  const side = $('side');
+  const cs = getComputedStyle(side);
+  const collapsed = parseFloat(cs.paddingBottom) + $('sheet-handle').offsetHeight + side.querySelector('.tabs').offsetHeight + 8;
+  const vh = window.innerHeight;
+  // Halb offen: genau bis unter die Arena (bei ganz nach oben gescrollter Seite)
+  const arenaBottom = $('arena').getBoundingClientRect().bottom + window.scrollY;
+  const half = Math.min(vh * 0.62, Math.max(280, vh - arenaBottom - 10));
+  return [collapsed, half, vh * 0.9];
+}
+
+function applySheet(px) {
+  const h = `${Math.round(px)}px`;
+  $('side').style.height = h;
+  document.documentElement.style.setProperty('--sheet-h', h);
+}
+
+function setSheet(level) {
+  if (!sheetMode()) return;
+  sheet.level = level;
+  const heights = sheetHeights();
+  document.documentElement.style.setProperty('--sheet-min', `${Math.round(heights[0])}px`);
+  applySheet(heights[level]);
+  $('side').classList.toggle('open', level > 0);
+  if (level > 0 && window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'smooth' });
+  requestAnimationFrame(placePills);
+}
+
+function initSheet() {
+  const side = $('side');
+  const handle = $('sheet-handle');
+  let drag = null;
+  handle.addEventListener('pointerdown', e => {
+    if (!sheetMode()) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    drag = { y: e.clientY, h: side.offsetHeight, t: performance.now(), lastY: e.clientY, lastT: performance.now(), moved: 0 };
+    side.classList.add('dragging');
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const [min, , max] = sheetHeights();
+    const h = Math.min(max, Math.max(min, drag.h - (e.clientY - drag.y)));
+    drag.moved = Math.max(drag.moved, Math.abs(e.clientY - drag.y));
+    drag.v = (e.clientY - drag.lastY) / Math.max(1, performance.now() - drag.lastT);
+    drag.lastY = e.clientY;
+    drag.lastT = performance.now();
+    applySheet(h);
+    side.classList.add('open');
+  });
+  const end = () => {
+    if (!drag) return;
+    side.classList.remove('dragging');
+    const heights = sheetHeights();
+    let level;
+    if (drag.moved < 6) level = sheet.level === 0 ? 1 : 0;      // Antippen: auf oder zu
+    else if ((drag.v || 0) > 0.6) level = Math.max(0, sheet.level - 1); // schnell nach unten gewischt
+    else if ((drag.v || 0) < -0.6) level = Math.min(2, sheet.level + 1);
+    else {
+      const h = side.offsetHeight;
+      level = heights.reduce((bestI, v, i) => (Math.abs(v - h) < Math.abs(heights[bestI] - h) ? i : bestI), 0);
+    }
+    drag = null;
+    setSheet(level);
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  const sync = () => {
+    if (sheetMode()) setSheet(sheet.level);
+    else {
+      side.style.height = '';
+      side.classList.remove('open');
+      document.documentElement.style.removeProperty('--sheet-h');
+    }
+  };
+  window.addEventListener('resize', sync);
+  sync();
+}
+
 // Gleitende Auswahl-Pille hinter dem aktiven Segment (Tabs und Kaufmenge)
 function placePill(group) {
   let pill = group.querySelector(':scope > .seg-pill');
@@ -4239,11 +4513,24 @@ function init() {
   });
   for (const btn of document.querySelectorAll('[role="tab"]')) {
     btn.addEventListener('click', () => {
+      if (sheetMode()) {
+        // Zugeklappt: öffnen. Offen und derselbe Tab: zuklappen.
+        if (sheet.level === 0) setSheet(1);
+        else if (btn.dataset.tab === state.tab) {
+          setSheet(0);
+          return;
+        }
+      }
+      const from = TAB_ORDER.indexOf(state.tab);
+      const to = TAB_ORDER.indexOf(btn.dataset.tab);
+      $('side-body').dataset.dir = to >= from ? 'right' : 'left';
+      if (state.tab !== btn.dataset.tab) $('side-body').scrollTop = 0;
       state.tab = btn.dataset.tab;
       renderTabs();
       render();
     });
   }
+  initSheet();
   for (const btn of document.querySelectorAll('[data-amount]')) {
     btn.addEventListener('click', () => {
       state.buyAmount = btn.dataset.amount === 'max' ? 'max' : Number(btn.dataset.amount);

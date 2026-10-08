@@ -42,12 +42,16 @@ Branch und Ordner `/ (root)` auswählen.
   Exploit-Modus (kritische Treffer), Hyperfokus (Tap-Schaden ×N) und Overclock (Helfer ×N). Freischalten
   ab einer Welle, mit Tokens bis Stufe 10 leveln, auslösen über die Kreise im Angriffsfeld oder die Tasten 1–6.
   Abklingzeiten von 1,5 bis 3 Minuten; Upgrades und Baum verkürzen sie höchstens auf die Hälfte.
-- **94 ausgedachte KIs mit eigenen Logos:** 39 Logo-Bauarten im Stil echter KI-Marken, jede KI mit eigener
+- **109 ausgedachte KIs mit eigenen Logos:** 39 Logo-Bauarten im Stil echter KI-Marken, jede KI mit eigener
   Farbnuance. Manche haben Eigenschaften: gepanzert, flink, regenerierend, mit Ratenlimit („429“) oder sie forken sich.
 - **Neue Generation:** 30 weitere KIs tauchen nach und nach ab Welle 3 auf, jede mit ihrer festen Fähigkeit:
   Schildphasen, Tarnung, falsche Schwachstellen, Teleport, Schrumpfen, Schweigepflicht (Fähigkeiten gesperrt),
   Aushärten, Token-Fresser, Glitches, Flucht nach 15 s oder Schwarm (zerfällt in zwei Kopien).
-- **Dark Vortex:** Ganz selten (1 zu 400) erscheint eine KI als dunkle Vortex-Variante mit fünffacher Beute.
+- **Seltenheit:** Die 64 klassischen KIs sind häufig, die 30 der neuen Generation selten, dazu 15 epische KIs,
+  die nur sehr selten auftauchen (etwa 1 zu 500 pro KI). Seltene Funde werden angesagt und in der Sammlung markiert;
+  unentdeckte Seltene verraten sich dort nur durch einen farbigen Rand.
+- **Dark Vortex:** Ganz selten (1 zu 400) erscheint eine KI als dunkle Vortex-Variante mit fünffacher Beute:
+  dieselbe Form wie die KI, aber wie Obsidian, mit Neon-Rand in ihrer Farbe, dunklem Schein und eigenem Strichring.
   Besiegte Varianten bekommen in der Sammlung eine Markierung und zeigen sich beim Drüberfahren oder Antippen.
 - **Limit-Leiste als Lebensanzeige:** „5-Stunden-Limit · 37 % verbraucht · noch 3 Std. 9 Min.“ – reine Optik.
 - **Wellen & Ultra-Launch:** 10 KIs pro Welle, jede etwas stärker; die zehnte ist eine Ultra-KI, die in
@@ -70,8 +74,12 @@ Branch und Ordner `/ (root)` auswählen.
   Restzeit des 5-Stunden-Limits und Uhrzeit des Wochen-Resets per Ziehen einstellen, Tage wischen,
   Feinjustieren mit Mausrad oder Trackpad. Beide Countdowns laufen live; ist ein Limit zurück, meldet sie sich.
 - **Offline-Fortschritt** bis zu 12 Stunden; eine zurückgestellte Systemuhr wird erkannt.
-- **Hintergrund-Partikel je KI:** Funken, Pixel, Ringe, Striche oder Punkte in Farbe und Form der aktuellen KI;
-  beim Wochenlimit steigt Glut auf, bei Dark Vortex wirbeln die Teilchen ins Zentrum.
+- **Hintergrund-Partikel je KI:** Jede KI hat ihr eigenes Partikelprofil – Form (Funken, Pixel, Ringe, Striche,
+  Punkte) mit Zweitform und Zweitfarbe, Bewegung (funkeln, kreisen, rieseln, treiben, ausstrahlen, aufsteigen),
+  Tempo und Dichte. Beim Wochenlimit steigt Glut auf, bei Dark Vortex wirbeln die Teilchen ins Zentrum.
+- **Aufbau:** Auf dem Handy ist das Menü eine Karte von unten mit Tab-Leiste am unteren Rand (antippen, hoch- oder
+  runterziehen); halb offen bleibt die Arena frei. Am Desktop bleibt die rechte Karte stehen, nur ihr Inhalt scrollt.
+  Das nächste Upgrade eines Helfers steht direkt unter ihm, der lohnendste Helfer ist als „Empfohlen“ markiert.
 - **Bedienung:** Gleitende Auswahl in den Tabs, kaufbare Preise als kräftige Knöpfe, Fortschrittsbalken bis zum
   nächsten Kauf, bei Helfern direkt der Zuwachs an Schaden/s, gekaufte Upgrades animieren heraus, im
   Fähigkeitenbaum zeigt Drüberfahren sofort die Details.

@@ -246,7 +246,7 @@ const LOGOS = {
     let out = '';
     for (let i = 0; i < n; i++) {
       const hue = (c.hue + i * (360 / n) * spread) % 360;
-      out += `<path transform="rotate(${r1(i * 360 / n)})" d="M0 0L0 -86A43 43 0 0 1 0 0Z" fill="hsl(${r1(hue)}, 82%, 58%)" fill-opacity="0.92"/>`;
+      out += `<path transform="rotate(${r1(i * 360 / n)})" d="M0 0L0 -86A43 43 0 0 1 0 0Z" fill="hsl(${r1(hue)}, ${c.vortex ? '60%, 22%' : '82%, 58%'})" fill-opacity="0.92"/>`;
     }
     return `<g>${out}${spin(c, 30)}</g>`;
   },
@@ -592,16 +592,6 @@ function haloRing(c) {
   return `<g><path d="${d}" fill="none" stroke="${c.b}" stroke-width="5" stroke-linecap="round" opacity="0.85"/>${spin(c, 24, true)}</g>`;
 }
 
-// Dark Vortex: ein dunkler Wirbel hinter der Marke
-function vortexBackdrop(c) {
-  let arms = '';
-  for (let i = 0; i < 5; i++) {
-    const a = i * 72;
-    arms += `<path d="M0 0C${P(40, a - 70)} ${P(84, a - 40)} ${P(97, a + 12)}C${P(70, a + 6)} ${P(34, a + 14)} 0 0Z"/>`;
-  }
-  return `<g fill="url(#${c.id('v')})">${arms}${spin(c, 9, true)}</g><circle r="34" fill="#06010c" opacity="0.85"/>`;
-}
-
 let logoUid = 0;
 
 // family: Bauart aus LOGOS · hue: Grundfarbton · seed: Variation
@@ -625,7 +615,7 @@ function logoSvg(family, hue, seed, opts = {}) {
     still: Boolean(opts.still) || LOGO_REDUCED_MOTION,
     vortex: Boolean(opts.vortex),
   };
-  if (c.vortex) return vortexSvg(family, c, h2);
+  if (c.vortex) return vortexSvg(family, c, seed);
   const defs = `<defs>
     <linearGradient id="${id('a')}" gradientUnits="userSpaceOnUse" x1="-80" y1="-90" x2="80" y2="90"><stop offset="0" stop-color="hsl(${r1(hue)}, 92%, 68%)"/><stop offset="0.55" stop-color="hsl(${r1(h2)}, 82%, 56%)"/><stop offset="1" stop-color="hsl(${r1(h3)}, 76%, 45%)"/></linearGradient>
     <linearGradient id="${id('b')}" gradientUnits="userSpaceOnUse" x1="80" y1="-90" x2="-80" y2="90"><stop offset="0" stop-color="hsl(${r1(h2)}, 90%, 70%)"/><stop offset="1" stop-color="hsl(${r1(h3)}, 80%, 48%)"/></linearGradient>
@@ -636,16 +626,36 @@ function logoSvg(family, hue, seed, opts = {}) {
   return `<svg viewBox="-100 -100 200 200" aria-hidden="true">${defs}${body}</svg>`;
 }
 
-function vortexSvg(family, c, h2) {
+// Dark Vortex: dieselbe Form wie die normale KI (gleicher Seed), aber dunkel wie Obsidian,
+// mit Neon-Rand in der eigenen Farbe der KI, dunklem Schein und einem eigenen Ring aus Strichen.
+function vortexSvg(family, c, seed) {
   const { id, hue } = c;
-  const neon = `hsl(${r1(hue)}, 100%, 66%)`;
+  const neon = `hsl(${r1(hue)}, 100%, 64%)`;
+  const neon2 = `hsl(${r1((hue + 35) % 360)}, 100%, 72%)`;
+  const extra = mulberry32(seed ^ 0x5bd1e995);
   const defs = `<defs>
-    <linearGradient id="${id('a')}" gradientUnits="userSpaceOnUse" x1="-80" y1="-90" x2="80" y2="90"><stop offset="0" stop-color="hsl(${r1(hue)}, 70%, 42%)"/><stop offset="0.5" stop-color="hsl(${r1((h2 + 300) % 360)}, 60%, 17%)"/><stop offset="1" stop-color="#0b0216"/></linearGradient>
-    <linearGradient id="${id('b')}" gradientUnits="userSpaceOnUse" x1="80" y1="-90" x2="-80" y2="90"><stop offset="0" stop-color="hsl(285, 85%, 52%)"/><stop offset="1" stop-color="#12031f"/></linearGradient>
-    <radialGradient id="${id('c')}" gradientUnits="userSpaceOnUse" cx="-26" cy="-30" r="120"><stop offset="0" stop-color="hsl(${r1(hue)}, 90%, 62%)"/><stop offset="0.45" stop-color="hsl(278, 70%, 24%)"/><stop offset="1" stop-color="#05010a"/></radialGradient>
-    <radialGradient id="${id('v')}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="100"><stop offset="0.25" stop-color="#090114"/><stop offset="0.7" stop-color="hsl(272, 85%, 30%)"/><stop offset="1" stop-color="${neon}"/></radialGradient>
-    <filter id="${id('glow')}" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="${neon}" flood-opacity="0.95"/><feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="hsl(285, 100%, 62%)" flood-opacity="0.55"/></filter>
+    <linearGradient id="${id('a')}" gradientUnits="userSpaceOnUse" x1="-80" y1="-90" x2="80" y2="90"><stop offset="0" stop-color="hsl(${r1(hue)}, 72%, 36%)"/><stop offset="0.5" stop-color="hsl(${r1(hue)}, 55%, 13%)"/><stop offset="1" stop-color="#06020b"/></linearGradient>
+    <linearGradient id="${id('b')}" gradientUnits="userSpaceOnUse" x1="80" y1="-90" x2="-80" y2="90"><stop offset="0" stop-color="hsl(${r1((hue + 30) % 360)}, 78%, 42%)"/><stop offset="1" stop-color="#0a0412"/></linearGradient>
+    <radialGradient id="${id('c')}" gradientUnits="userSpaceOnUse" cx="-26" cy="-30" r="120"><stop offset="0" stop-color="hsl(${r1(hue)}, 85%, 54%)"/><stop offset="0.5" stop-color="hsl(${r1(hue)}, 50%, 15%)"/><stop offset="1" stop-color="#040108"/></radialGradient>
+    <radialGradient id="${id('halo')}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="100"><stop offset="0" stop-color="hsl(${r1(hue)}, 80%, 28%)" stop-opacity="0.75"/><stop offset="0.6" stop-color="hsl(${r1(hue)}, 70%, 14%)" stop-opacity="0.35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <filter id="${id('rim')}" x="-30%" y="-30%" width="160%" height="160%">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="2.6" result="grown"/>
+      <feFlood flood-color="${neon}"/>
+      <feComposite in2="grown" operator="in" result="edge"/>
+      <feGaussianBlur in="edge" stdDeviation="5" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="edge"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>`;
   const body = (LOGOS[family] || LOGOS.sparkle)(c);
-  return `<svg viewBox="-100 -100 200 200" aria-hidden="true">${defs}${vortexBackdrop(c)}<g transform="scale(0.8)" filter="url(#${id('glow')})">${body}</g></svg>`;
+  // Eigener Ring: Anzahl und Länge der Striche hängen am Seed
+  const dashes = 5 + Math.floor(extra() * 6);
+  const dash = r1((2 * Math.PI * 95) / dashes * (0.35 + extra() * 0.35));
+  const gap = r1((2 * Math.PI * 95) / dashes - dash);
+  const ring = `<g><circle r="95" fill="none" stroke="${neon}" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="${dash} ${gap}" opacity="0.6"/>${spin(c, 14 + extra() * 10, extra() > 0.5)}</g>`;
+  const sparks = Array.from({ length: 3 }, (_, i) => {
+    const [x, y] = polar(70 + extra() * 22, extra() * 360);
+    const twinkle = anim(c, `<animate attributeName="opacity" values="0.2;1;0.2" dur="${r1(1.6 + extra())}s" begin="${r1(i * 0.5)}s" repeatCount="indefinite"/>`);
+    return `<path transform="translate(${r1(x)} ${r1(y)})" d="${sparklePath(7 + extra() * 4)}" fill="${neon2}">${twinkle}</path>`;
+  }).join('');
+  return `<svg viewBox="-100 -100 200 200" aria-hidden="true">${defs}<circle r="98" fill="url(#${id('halo')})"/>${ring}<g transform="scale(0.86)" filter="url(#${id('rim')})">${body}</g>${sparks}</svg>`;
 }
