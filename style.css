@@ -1,4 +1,4 @@
-/* Layout: zwei Karten (Bühne links, Werkzeugkasten rechts), oben eine Notch im Dynamic-Island-Stil. */
+/* Layout: zwei Karten (Bühne links, Werkzeugkasten rechts); über dem KI-Namen eine schwarze Limit-Blase. */
 :root {
   --bg: #f5f5f7;
   --card: #ffffff;
@@ -16,12 +16,12 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px rgba(0, 0, 0, 0.06);
   --glass: rgba(255, 255, 255, 0.72);
   --scrim: rgba(0, 0, 0, 0.28);
-  /* Die Notch ist in beiden Modi schwarz, wie die Dynamic Island. */
-  --notch: #0a0a0b;
-  --notch-text: #f5f5f7;
-  --notch-muted: rgba(235, 235, 245, 0.55);
-  --notch-fill: rgba(255, 255, 255, 0.09);
-  --notch-line: rgba(255, 255, 255, 0.12);
+  /* Die Limit-Blase ist in beiden Modi schwarz, wie die Dynamic Island. */
+  --island: #0a0a0b;
+  --island-text: #f5f5f7;
+  --island-muted: rgba(235, 235, 245, 0.55);
+  --island-fill: rgba(255, 255, 255, 0.09);
+  --island-line: rgba(255, 255, 255, 0.12);
 
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --font-num: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -49,7 +49,7 @@
     --shadow: none;
     --glass: rgba(44, 44, 46, 0.72);
     --scrim: rgba(0, 0, 0, 0.5);
-    --notch-line: rgba(255, 255, 255, 0.16);
+    --island-line: rgba(255, 255, 255, 0.16);
     color-scheme: dark;
   }
 }
@@ -70,7 +70,7 @@
   --shadow: none;
   --glass: rgba(44, 44, 46, 0.72);
   --scrim: rgba(0, 0, 0, 0.5);
-  --notch-line: rgba(255, 255, 255, 0.16);
+  --island-line: rgba(255, 255, 255, 0.16);
   color-scheme: dark;
 }
 
@@ -141,7 +141,7 @@ button { font: inherit; color: inherit; }
   gap: 20px;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 64px 20px 32px;
+  padding: 24px 20px 32px;
   align-items: start;
 }
 .card {
@@ -152,7 +152,7 @@ button { font: inherit; color: inherit; }
 }
 .stage {
   position: sticky;
-  top: 56px;
+  top: 20px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -161,7 +161,7 @@ button { font: inherit; color: inherit; }
 .side { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: minmax(0, 1fr); padding: 60px 16px 24px; gap: 16px; }
+  .app { grid-template-columns: minmax(0, 1fr); padding: 16px 16px 24px; gap: 16px; }
   .stage { position: static; }
 }
 
@@ -505,26 +505,29 @@ button { font: inherit; color: inherit; }
 .group .btn { background: var(--card); }
 .group .btn:hover:not(:disabled) { background: var(--fill-2); }
 
-/* ---------- Notch ---------- */
-.notch {
-  position: fixed;
-  top: 0;
-  left: 50%;
-  z-index: 60;
-  width: 244px;
-  padding-top: env(safe-area-inset-top, 0px);
-  transform: translateX(-50%);
-  background: var(--notch);
-  color: var(--notch-text);
-  border-radius: 0 0 20px 20px;
-  box-shadow: 0 0 0 1px var(--notch-line), 0 12px 32px rgba(0, 0, 0, 0.22);
+/* ---------- Limit-Blase (über dem KI-Namen) ---------- */
+/* Container-Einheiten: Der Inhalt wird immer in voller Breite gesetzt, auch wenn die Blase zu ist. */
+.limits { position: relative; z-index: 30; height: 36px; margin-bottom: 6px; container-type: inline-size; }
+.island {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column-reverse; /* klappt nach oben auf, die Pille bleibt unten stehen */
+  width: 236px;
+  background: var(--island);
+  color: var(--island-text);
+  border-radius: 18px;
+  box-shadow: 0 0 0 1px var(--island-line), 0 10px 28px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   transition: width 0.5s var(--spring), border-radius 0.4s var(--ease), box-shadow 0.3s;
 }
-.notch.open { width: min(440px, calc(100vw - 16px)); border-radius: 0 0 30px 30px; }
-.notch.alert:not(.open) { width: min(360px, calc(100vw - 16px)); box-shadow: 0 0 0 1px var(--accent), 0 12px 32px rgba(217, 119, 87, 0.35); }
-.notch-pill {
+.island.down { top: 0; bottom: auto; flex-direction: column; }
+.island.open { width: min(440px, 100cqw); border-radius: 26px; box-shadow: 0 0 0 1px var(--island-line), 0 18px 48px rgba(0, 0, 0, 0.32); }
+.island.alert:not(.open) { width: min(340px, 100cqw); box-shadow: 0 0 0 1px var(--accent), 0 10px 28px rgba(217, 119, 87, 0.35); }
+.island-pill {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -537,49 +540,52 @@ button { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.notch-mark { color: var(--accent); font-size: 1rem; }
+.island-mark { color: var(--accent); font-size: 1rem; }
 .pill-limits { display: flex; gap: 12px; }
 .pill-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.pill-item.off { color: var(--notch-muted); }
+.pill-item.off { color: var(--island-muted); }
 .ring { width: 14px; height: 14px; transform: rotate(-90deg); }
 .ring circle { fill: none; stroke-width: 2.4; }
-.ring-track { stroke: var(--notch-line); }
+.ring-track { stroke: var(--island-line); }
 .ring-fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 37.7; stroke-dashoffset: 37.7; transition: stroke-dashoffset 0.4s var(--ease); }
 .pill-alert { flex: 1; text-align: center; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.notch-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s var(--ease); }
-.notch.open .notch-panel { grid-template-rows: 1fr; }
-.notch-inner { min-height: 0; overflow: hidden; }
-.notch-content {
+.island-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s var(--ease); }
+.island.open .island-panel { grid-template-rows: 1fr; }
+.island-inner { min-height: 0; overflow: hidden; }
+.island.open.scroll .island-inner { max-height: var(--island-max); overflow-y: auto; scrollbar-width: thin; }
+.island-content {
+  width: min(440px, 100cqw);
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 6px 18px 18px;
+  gap: 16px;
+  padding: 16px 18px 8px;
   opacity: 0;
-  transform: translateY(-6px) scale(0.98);
+  transform: translateY(6px) scale(0.98);
   transition: opacity 0.18s, transform 0.3s var(--ease);
 }
-.notch.open .notch-content { opacity: 1; transform: none; transition-delay: 0.1s; }
+.island.down .island-content { padding: 8px 18px 16px; transform: translateY(-6px) scale(0.98); }
+.island.open .island-content { opacity: 1; transform: none; transition-delay: 0.1s; }
 
 .nl-section { display: flex; flex-direction: column; gap: 8px; }
-.nl-section + .nl-section { padding-top: 16px; border-top: 1px solid var(--notch-line); }
+.nl-section + .nl-section { padding-top: 14px; border-top: 1px solid var(--island-line); }
 .nl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
 .nl-title { font-weight: 600; font-size: 0.92rem; }
-.nl-sub { font-size: 0.78rem; color: var(--notch-muted); font-variant-numeric: tabular-nums; }
+.nl-sub { font-size: 0.78rem; color: var(--island-muted); font-variant-numeric: tabular-nums; }
 .nl-big {
-  font: 700 2.1rem/1.05 var(--font-num);
+  font: 700 1.8rem/1.05 var(--font-num);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   cursor: ns-resize;
 }
-.nl-big.off { color: var(--notch-muted); }
+.nl-big.off { color: var(--island-muted); }
 
 /* Regler im Stil des Kontrollzentrums: irgendwo greifen und ziehen */
 .scrub {
   position: relative;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--notch-fill);
+  height: 40px;
+  border-radius: 13px;
+  background: var(--island-fill);
   overflow: hidden;
   touch-action: none;
   cursor: ew-resize;
@@ -599,8 +605,8 @@ button { font: inherit; color: inherit; }
 .scrub.dragging .scrub-fill { transition: none; }
 .scrub-fill { transition: width 0.25s var(--ease); }
 .scrub-ticks { position: absolute; inset: 0; }
-.scrub-ticks-5 { background: repeating-linear-gradient(90deg, transparent 0 calc(20% - 1px), var(--notch-line) calc(20% - 1px) 20%); }
-.scrub-ticks-4 { background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), var(--notch-line) calc(25% - 1px) 25%); }
+.scrub-ticks-5 { background: repeating-linear-gradient(90deg, transparent 0 calc(20% - 1px), var(--island-line) calc(20% - 1px) 20%); }
+.scrub-ticks-4 { background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), var(--island-line) calc(25% - 1px) 25%); }
 .scrub-label {
   position: absolute;
   left: 14px;
@@ -616,7 +622,7 @@ button { font: inherit; color: inherit; }
   justify-content: space-between;
   margin-top: -4px;
   font: 500 0.68rem var(--font-num);
-  color: var(--notch-muted);
+  color: var(--island-muted);
 }
 
 .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -628,24 +634,24 @@ button { font: inherit; color: inherit; }
   padding: 6px 0;
   border: 0;
   border-radius: 11px;
-  background: var(--notch-fill);
-  color: var(--notch-text);
+  background: var(--island-fill);
+  color: var(--island-text);
   font: 600 0.78rem/1.1 var(--font-num);
   cursor: pointer;
   transition: background 0.2s, transform 0.2s var(--spring);
 }
-.day small { font-weight: 500; font-size: 0.68rem; color: var(--notch-muted); }
+.day small { font-weight: 500; font-size: 0.68rem; color: var(--island-muted); }
 .day[aria-checked="true"] { background: var(--accent); color: #fff; transform: scale(1.04); }
 .day[aria-checked="true"] small { color: rgba(255, 255, 255, 0.8); }
 
 .nl-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.nl-hint { font-size: 0.75rem; color: var(--notch-muted); }
+.nl-hint { font-size: 0.75rem; color: var(--island-muted); }
 .nl-chip {
   padding: 0.35rem 0.8rem;
   border: 0;
   border-radius: 999px;
-  background: var(--notch-fill);
-  color: var(--notch-text);
+  background: var(--island-fill);
+  color: var(--island-text);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
@@ -653,7 +659,7 @@ button { font: inherit; color: inherit; }
 }
 .nl-chip:hover { background: rgba(255, 255, 255, 0.16); }
 .nl-chip:active { transform: scale(0.96); }
-.nl-ghost { background: transparent; color: var(--notch-muted); }
+.nl-ghost { background: transparent; color: var(--island-muted); }
 
 /* ---------- Geistesblitz ---------- */
 .golden {

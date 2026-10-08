@@ -811,19 +811,34 @@ function catchGolden() {
   render();
 }
 
-// ---------- Deine Claude-Limits (Notch) ----------
+// ---------- Deine Claude-Limits (Limit-Blase) ----------
 
 const RING = 2 * Math.PI * 6;
-const notch = { hover: false, pinned: false, drag: false, closeTimer: 0, alertTimer: 0 };
+const island = { hover: false, pinned: false, drag: false, closeTimer: 0, alertTimer: 0 };
 let keyboardNav = false;
 let lastPointerType = 'mouse';
 
-function syncNotch() {
-  const el = $('notch');
+// Aufklappen nach oben, wenn darüber genug Platz ist – sonst nach unten.
+// Passt der Inhalt nirgends ganz hin, scrollt er innerhalb der Blase.
+function placeIsland(el) {
+  const anchor = $('limits').getBoundingClientRect();
+  const needed = el.querySelector('.island-content').offsetHeight;
+  const above = anchor.top - 8;
+  const below = window.innerHeight - anchor.bottom - 8;
+  const up = above >= needed || above >= below;
+  const room = Math.max(180, up ? above : below);
+  el.classList.toggle('down', !up);
+  el.classList.toggle('scroll', needed > room);
+  el.style.setProperty('--island-max', `${Math.round(room)}px`);
+}
+
+function syncIsland() {
+  const el = $('island');
   const focusInside = keyboardNav && el.contains(document.activeElement);
-  const open = notch.hover || notch.pinned || notch.drag || focusInside;
+  const open = island.hover || island.pinned || island.drag || focusInside;
+  if (open && !el.classList.contains('open')) placeIsland(el);
   el.classList.toggle('open', open);
-  $('notch-pill').setAttribute('aria-expanded', String(open));
+  $('island-pill').setAttribute('aria-expanded', String(open));
 }
 
 function haptic() {
@@ -839,7 +854,7 @@ function requestNotifications() {
   try {
     if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
   } catch {
-    // Benachrichtigungen nicht erlaubt – die Notch meldet sich trotzdem.
+    // Benachrichtigungen nicht erlaubt – die Limit-Blase meldet sich trotzdem.
   }
 }
 
@@ -887,7 +902,7 @@ function clearWeekly() {
 function commitLimits() {
   requestNotifications();
   save();
-  renderNotch(Date.now());
+  renderIsland(Date.now());
 }
 
 // Regler im Stil des Kontrollzentrums: irgendwo greifen und ziehen, scrollen oder Pfeiltasten.
@@ -900,7 +915,7 @@ function makeScrubber(el, { max, step, get, set, wheelTargets = [] }) {
       haptic();
     }
     set(v);
-    renderNotch(Date.now());
+    renderIsland(Date.now());
   };
   const fromPointer = e => {
     const rect = el.getBoundingClientRect();
@@ -909,9 +924,9 @@ function makeScrubber(el, { max, step, get, set, wheelTargets = [] }) {
   const end = () => {
     if (!el.classList.contains('dragging')) return;
     el.classList.remove('dragging');
-    notch.drag = false;
+    island.drag = false;
     commitLimits();
-    syncNotch();
+    syncIsland();
   };
   el.addEventListener('pointerdown', e => {
     lastPointerType = e.pointerType;
@@ -919,8 +934,8 @@ function makeScrubber(el, { max, step, get, set, wheelTargets = [] }) {
     el.focus({ preventScroll: true });
     el.setPointerCapture(e.pointerId);
     el.classList.add('dragging');
-    notch.drag = true;
-    syncNotch();
+    island.drag = true;
+    syncIsland();
     apply(fromPointer(e));
   });
   el.addEventListener('pointermove', e => {
@@ -984,7 +999,7 @@ function initDays() {
     lastDay = day;
     haptic();
     setWeekly(day, weeklyParts().minutes ?? 0);
-    renderNotch(Date.now());
+    renderIsland(Date.now());
   };
   const dayAt = e => {
     const rect = strip.getBoundingClientRect();
@@ -994,7 +1009,7 @@ function initDays() {
     lastPointerType = e.pointerType;
     e.preventDefault();
     strip.setPointerCapture(e.pointerId);
-    notch.drag = true;
+    island.drag = true;
     lastDay = null;
     pick(dayAt(e));
   });
@@ -1002,10 +1017,10 @@ function initDays() {
     if (strip.hasPointerCapture(e.pointerId)) pick(dayAt(e));
   });
   const end = () => {
-    if (!notch.drag) return;
-    notch.drag = false;
+    if (!island.drag) return;
+    island.drag = false;
     commitLimits();
-    syncNotch();
+    syncIsland();
   };
   strip.addEventListener('pointerup', end);
   strip.addEventListener('pointercancel', end);
@@ -1029,41 +1044,41 @@ function initDays() {
   }, { passive: false });
 }
 
-function initNotch() {
-  const el = $('notch');
+function initIsland() {
+  const el = $('island');
   el.addEventListener('pointerenter', e => {
     if (e.pointerType !== 'mouse') return;
-    clearTimeout(notch.closeTimer);
-    notch.hover = true;
-    syncNotch();
+    clearTimeout(island.closeTimer);
+    island.hover = true;
+    syncIsland();
   });
   el.addEventListener('pointerleave', e => {
     if (e.pointerType !== 'mouse') return;
-    notch.closeTimer = setTimeout(() => { notch.hover = false; syncNotch(); }, 280);
+    island.closeTimer = setTimeout(() => { island.hover = false; syncIsland(); }, 280);
   });
-  // Antippen (Touch) bzw. Klicken pinnt die Notch geöffnet.
-  $('notch-pill').addEventListener('click', () => {
-    notch.pinned = !notch.pinned;
-    syncNotch();
+  // Antippen (Touch) bzw. Klicken pinnt die Limit-Blase geöffnet.
+  $('island-pill').addEventListener('click', () => {
+    island.pinned = !island.pinned;
+    syncIsland();
   });
   document.addEventListener('pointerdown', e => {
     keyboardNav = false;
-    if (notch.pinned && !el.contains(e.target)) {
-      notch.pinned = false;
-      syncNotch();
+    if (island.pinned && !el.contains(e.target)) {
+      island.pinned = false;
+      syncIsland();
     }
   }, true);
   document.addEventListener('keydown', e => {
     keyboardNav = true;
-    if (e.key === 'Escape' && (notch.pinned || el.contains(document.activeElement))) {
-      notch.pinned = false;
-      notch.hover = false;
+    if (e.key === 'Escape' && (island.pinned || el.contains(document.activeElement))) {
+      island.pinned = false;
+      island.hover = false;
       if (el.contains(document.activeElement)) document.activeElement.blur();
     }
-    syncNotch();
+    syncIsland();
   }, true);
-  el.addEventListener('focusin', syncNotch);
-  el.addEventListener('focusout', () => setTimeout(syncNotch, 0));
+  el.addEventListener('focusin', syncIsland);
+  el.addEventListener('focusout', () => setTimeout(syncIsland, 0));
 
   makeScrubber($('session-scrub'), {
     max: SESSION_MS / MINUTE_MS,
@@ -1097,13 +1112,13 @@ function initNotch() {
 
 function limitReached(text) {
   state.limitsSurvived++;
-  const el = $('notch');
+  const el = $('island');
   $('pill-alert').textContent = text;
   $('pill-alert').hidden = false;
   $('pill-limits').hidden = true;
   el.classList.add('alert');
-  clearTimeout(notch.alertTimer);
-  notch.alertTimer = setTimeout(() => {
+  clearTimeout(island.alertTimer);
+  island.alertTimer = setTimeout(() => {
     el.classList.remove('alert');
     $('pill-alert').hidden = true;
     $('pill-limits').hidden = false;
@@ -1112,7 +1127,7 @@ function limitReached(text) {
   try {
     if ('Notification' in window && Notification.permission === 'granted') new Notification('No Limit', { body: text });
   } catch {
-    // Benachrichtigungen nicht verfügbar – die Notch reicht.
+    // Benachrichtigungen nicht verfügbar – die Limit-Blase reicht.
   }
   save();
 }
@@ -1132,7 +1147,7 @@ function setRing(id, fraction) {
   $(id).style.strokeDashoffset = String(RING * (1 - clamp01(fraction)));
 }
 
-function renderNotch(now) {
+function renderIsland(now) {
   buildDays(now);
 
   const session = state.limitReset;
@@ -1433,7 +1448,7 @@ function render() {
 
   renderEnemy(now);
   renderWeek(now);
-  renderNotch(now);
+  renderIsland(now);
   renderGenerators();
   renderUpgrades();
   renderStats(now);
@@ -1644,7 +1659,7 @@ function init() {
   buildWeekBar();
   checkWeek(Date.now());
   applyOfflineProgress();
-  initNotch();
+  initIsland();
 
   $('enemy').addEventListener('click', attackTap);
   $('retreat-btn').addEventListener('click', retreat);

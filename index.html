@@ -8,60 +8,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Notch: zugeklappt die Countdowns, aufgeklappt die Limit-Einstellungen -->
-  <div id="notch" class="notch">
-    <button id="notch-pill" class="notch-pill" aria-expanded="false" aria-controls="notch-panel">
-      <span class="notch-mark" data-icon="token"></span>
-      <span id="pill-limits" class="pill-limits">
-        <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-session" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-session-text">5 Std.</span></span>
-        <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-weekly" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-weekly-text">Woche</span></span>
-      </span>
-      <span id="pill-alert" class="pill-alert" hidden></span>
-    </button>
-    <div id="notch-panel" class="notch-panel">
-      <div class="notch-inner">
-        <div class="notch-content">
-          <section class="nl-section" aria-label="5-Stunden-Limit">
-            <div class="nl-head">
-              <span class="nl-title">Aktuelle Sitzung</span>
-              <span id="session-sub" class="nl-sub">nicht eingestellt</span>
-            </div>
-            <div id="session-big" class="nl-big off">0:00:00</div>
-            <div id="session-scrub" class="scrub" role="slider" tabindex="0" aria-label="Zeit bis zum Reset des 5-Stunden-Limits" aria-valuemin="0" aria-valuemax="300">
-              <div class="scrub-ticks scrub-ticks-5"></div>
-              <div class="scrub-fill"></div>
-              <span class="scrub-label"></span>
-            </div>
-            <div class="scrub-scale"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5 Std.</span></div>
-            <div class="nl-actions">
-              <button id="session-full" class="nl-chip">Gerade erreicht · 5 Std.</button>
-              <button id="session-clear" class="nl-chip nl-ghost">Aus</button>
-            </div>
-          </section>
-
-          <section class="nl-section" aria-label="Wöchentliches Limit">
-            <div class="nl-head">
-              <span class="nl-title">Wöchentliches Limit</span>
-              <span id="weekly-sub" class="nl-sub">nicht eingestellt</span>
-            </div>
-            <div id="weekly-big" class="nl-big off">0 T 00:00:00</div>
-            <div id="weekly-days" class="days" role="radiogroup" aria-label="Tag des Wochen-Resets"></div>
-            <div id="weekly-scrub" class="scrub" role="slider" tabindex="0" aria-label="Uhrzeit des Wochen-Resets" aria-valuemin="0" aria-valuemax="1425">
-              <div class="scrub-ticks scrub-ticks-4"></div>
-              <div class="scrub-fill"></div>
-              <span class="scrub-label"></span>
-            </div>
-            <div class="scrub-scale"><span>0</span><span>6</span><span>12</span><span>18</span><span>24 Uhr</span></div>
-            <div class="nl-actions">
-              <span class="nl-hint">Ziehen, wischen oder scrollen</span>
-              <button id="weekly-clear" class="nl-chip nl-ghost">Aus</button>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <main class="app">
     <section class="card stage">
       <header class="stage-head">
@@ -96,6 +42,61 @@
       </div>
 
       <div class="enemy-info">
+        <!-- Limit-Blase: zugeklappt die Countdowns, aufgeklappt die Limit-Einstellungen -->
+        <div id="limits" class="limits">
+          <div id="island" class="island">
+            <button id="island-pill" class="island-pill" aria-expanded="false" aria-controls="island-panel">
+              <span class="island-mark" data-icon="token"></span>
+              <span id="pill-limits" class="pill-limits">
+                <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-session" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-session-text">5 Std.</span></span>
+                <span class="pill-item"><svg class="ring" viewBox="0 0 16 16" aria-hidden="true"><circle class="ring-track" cx="8" cy="8" r="6"/><circle id="ring-weekly" class="ring-fill" cx="8" cy="8" r="6"/></svg><span id="pill-weekly-text">Woche</span></span>
+              </span>
+              <span id="pill-alert" class="pill-alert" hidden></span>
+            </button>
+            <div id="island-panel" class="island-panel">
+              <div class="island-inner">
+                <div class="island-content">
+                  <section class="nl-section" aria-label="5-Stunden-Limit">
+                    <div class="nl-head">
+                      <span class="nl-title">Aktuelle Sitzung</span>
+                      <span id="session-sub" class="nl-sub">nicht eingestellt</span>
+                    </div>
+                    <div id="session-big" class="nl-big off">0:00:00</div>
+                    <div id="session-scrub" class="scrub" role="slider" tabindex="0" aria-label="Zeit bis zum Reset des 5-Stunden-Limits" aria-valuemin="0" aria-valuemax="300">
+                      <div class="scrub-ticks scrub-ticks-5"></div>
+                      <div class="scrub-fill"></div>
+                      <span class="scrub-label"></span>
+                    </div>
+                    <div class="scrub-scale"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5 Std.</span></div>
+                    <div class="nl-actions">
+                      <button id="session-full" class="nl-chip">Gerade erreicht · 5 Std.</button>
+                      <button id="session-clear" class="nl-chip nl-ghost">Aus</button>
+                    </div>
+                  </section>
+
+                  <section class="nl-section" aria-label="Wöchentliches Limit">
+                    <div class="nl-head">
+                      <span class="nl-title">Wöchentliches Limit</span>
+                      <span id="weekly-sub" class="nl-sub">nicht eingestellt</span>
+                    </div>
+                    <div id="weekly-big" class="nl-big off">0 T 00:00:00</div>
+                    <div id="weekly-days" class="days" role="radiogroup" aria-label="Tag des Wochen-Resets"></div>
+                    <div id="weekly-scrub" class="scrub" role="slider" tabindex="0" aria-label="Uhrzeit des Wochen-Resets" aria-valuemin="0" aria-valuemax="1425">
+                      <div class="scrub-ticks scrub-ticks-4"></div>
+                      <div class="scrub-fill"></div>
+                      <span class="scrub-label"></span>
+                    </div>
+                    <div class="scrub-scale"><span>0</span><span>6</span><span>12</span><span>18</span><span>24 Uhr</span></div>
+                    <div class="nl-actions">
+                      <span class="nl-hint">Ziehen, wischen oder scrollen</span>
+                      <button id="weekly-clear" class="nl-chip nl-ghost">Aus</button>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="enemy-title">
           <span id="enemy-name" class="enemy-name"></span>
           <span id="enemy-tag" class="tag"></span>
@@ -194,7 +195,7 @@
             <li>Die Lebensleiste ist ein 5-Stunden-Limit: Dein Schaden verbraucht es, bei 100 % ist die KI besiegt.</li>
             <li>10 KIs pro Welle, die zehnte ist eine Ultra-Version mit mehr HP. Jede KI ist etwas stärker als die vorige.</li>
             <li>Jeder Sieg füllt die Wochenleiste. Bei 100 % erscheint der Boss „Das Wochenlimit“.</li>
-            <li>Oben in der Notch stellst du deine echten Claude-Limits ein. Die Boss-Woche richtet sich nach deinem Wochen-Reset.</li>
+            <li>In der schwarzen Limit-Blase über dem KI-Namen stellst du deine echten Claude-Limits ein. Die Boss-Woche richtet sich nach deinem Wochen-Reset.</li>
             <li>Helfer kämpfen bis zu 12 Stunden weiter, während du weg bist.</li>
           </ul>
         </div>

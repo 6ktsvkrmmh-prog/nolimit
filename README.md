@@ -30,10 +30,10 @@ Branch und Ordner `/ (root)` auswählen.
 - **Wellen:** 10 KIs pro Welle, jede etwas stärker als die vorige; die zehnte ist eine Ultra-Version.
 - **Wochenboss:** Jeder Sieg füllt die Wochenleiste (5 Etappen mit Belohnungen). Bei 100 % erscheint
   „Das Wochenlimit“. Ein Sieg bringt dauerhaft +25 % Schaden.
-- **Notch für deine Claude-Limits:** Oben in der Mitte, öffnet sich bei Hover (oder Antippen).
+- **Limit-Blase für deine Claude-Limits:** Schwarze Blase über dem KI-Namen, öffnet sich bei Hover (oder Antippen).
   Restzeit des 5-Stunden-Limits und Uhrzeit des Wochen-Resets per Ziehen einstellen, Tage wischen,
   Feinjustieren mit Mausrad oder Trackpad. Zugeklappt laufen beide Countdowns weiter; ist ein Limit
-  zurück, meldet sich die Notch. Nach dem Wochen-Reset richtet sich auch die Boss-Woche im Spiel.
+  zurück, meldet sich die Blase. Nach dem Wochen-Reset richtet sich auch die Boss-Woche im Spiel.
 - **8 Helfer** mit je fünf eigenen Upgrades (z. B. „Pair-Debugging“, „Wasserkühlung“, „Kardaschow-Stufe II“),
   Geistesblitze, Kontext komprimieren (Prestige), 22 Erfolge, Tagesbonus
 - **Offline-Fortschritt** bis zu 12 Stunden; eine zurückgestellte Systemuhr wird erkannt.
