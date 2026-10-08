@@ -16,7 +16,7 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
-    "category": "public.app-category.casual-games",
+    "category": "Game",
     "copyright": "No Limit",
     "shortDescription": "Idle-Clicker für die Zeit ohne Claude-Limit",
     "icon": [
