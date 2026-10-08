@@ -1,0 +1,14 @@
+# Prüft die veröffentlichte App mit echtem Chrome: erreichbar, installierbar, offline spielbar.
+# GitHub Pages veröffentlicht den Branch selbst; dieser Ablauf wird von Hand gestartet.
+name: App prüfen
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install --no-save playwright-core@1.56.1
+      - run: node .github/scripts/check-app.js https://6ktsvkrmmh-prog.github.io/nolimit/ "$(command -v google-chrome || command -v chromium)"
