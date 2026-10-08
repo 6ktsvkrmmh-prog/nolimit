@@ -1564,7 +1564,8 @@ button { font: inherit; color: inherit; }
 .rail, .drawer-head { display: none; }
 .stage-foot { display: flex; flex-direction: column; gap: 18px; }
 .foot-side { display: flex; flex-direction: column; gap: 18px; }
-@media (min-width: 901px) {
+/* Desktop und Handy quer: Leisten am Rand, Menü fährt aus (am Handy per Tippen) */
+@media (min-width: 901px), (orientation: landscape) and (max-height: 520px) {
   .app { grid-template-columns: minmax(0, 1fr); max-width: 1180px; position: relative; }
   .stage { position: relative; top: auto; }
   .arena { height: 500px; }
@@ -1658,11 +1659,12 @@ button { font: inherit; color: inherit; }
   .arena-left { left: calc(10px + var(--free-l, 0px)); transition: left 0.5s var(--spring); }
   .arena-corner { right: calc(10px + var(--free-r, 0px)); transition: right 0.5s var(--spring); }
   .tap-hint { left: calc(14px + var(--free-l, 0px)); transition: left 0.5s var(--spring); }
-  .skill-dock, .throttle { left: calc(50% + (var(--free-l, 0px) - var(--free-r, 0px)) / 2); transition: left 0.5s var(--spring); }
+  .skill-dock, .throttle { left: calc(50% + var(--shift, 0px)); transition: left 0.5s var(--spring); }
 }
 
 /* Handy: Menü als Karte von unten, Tab-Leiste am unteren Rand */
-@media (max-width: 900px) {
+/* Handy hoch: Menü als Karte von unten */
+@media (max-width: 900px) and (orientation: portrait), (max-width: 900px) and (min-height: 521px) {
   .side {
     position: fixed;
     left: 0;
@@ -1853,6 +1855,44 @@ button { font: inherit; color: inherit; }
   .segmented button { font-size: 0.76rem; padding: 0.4rem 0.2rem; }
   .enemy { width: 190px; height: 190px; }
   .stage { padding: 16px; }
+}
+
+/* Handy quer: alles kompakt, die Arena füllt die Höhe */
+@media (orientation: landscape) and (max-height: 520px) {
+  .app { padding: 8px 12px; }
+  /* Kopf und Werte in einer Zeile, darunter die Arena über die volle Höhe */
+  .stage {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "head stats" "arena arena" "foot foot";
+    column-gap: 24px;
+    row-gap: 10px;
+    padding: 10px 14px 14px;
+    border-radius: 18px;
+  }
+  .stage-head { grid-area: head; }
+  .stats-row { grid-area: stats; grid-template-columns: repeat(3, auto); justify-content: end; column-gap: 28px; align-items: center; }
+  .arena { grid-area: arena; height: max(230px, calc(100vh - 86px)); height: max(230px, calc(100svh - 86px)); }
+  .stage-foot { grid-area: foot; }
+  .stat-main { grid-column: auto; }
+  .stat-label { font-size: 0.68rem; }
+  .stat-value, .stat-main .stat-value { font-size: 1.1rem; }
+  .stat-sub { font-size: 0.68rem; }
+  .enemy { width: clamp(130px, calc(100svh - 215px), 240px); height: clamp(130px, calc(100svh - 215px), 240px); }
+  .rail { gap: 6px; }
+  .rail-btn { height: 40px; padding: 0 10px; }
+  .rail-icon { font-size: 1.05rem; }
+  .skill-dock { bottom: 8px; gap: 6px; }
+  .dock-skill { width: 38px; height: 38px; font-size: 1.05rem; }
+  .side { padding: 8px 12px 12px; gap: 6px; border-radius: 18px; }
+  .drawer-head { padding: 0 2px 2px; }
+  .drawer-title { font-size: 0.95rem; }
+  .side .drawer-pin { opacity: 1; }
+  .tap-hint { display: none; }
+  /* Hinweise unten rechts, damit die Fähigkeiten frei bleiben */
+  .toasts { left: auto; right: 14px; bottom: 12px; width: min(300px, 40vw); transform: none; align-items: flex-end; }
+  /* Im niedrigen Menü klebt die Baum-Detailleiste nicht, sie steht unter dem Baum */
+  .tree-detail { position: relative; bottom: auto; }
 }
 
 @media (max-width: 400px) {

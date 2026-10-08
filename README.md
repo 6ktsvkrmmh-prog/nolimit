@@ -20,6 +20,18 @@ python3 -m http.server 8000
 Online spielen über GitHub Pages: *Settings → Pages → Deploy from a branch*,
 Branch und Ordner `/ (root)` auswählen.
 
+### Als App auf dem Desktop
+
+- **Als installierte App (mit Icon, eigenem Fenster, offline spielbar):** Die Seite über eine Web-Adresse öffnen
+  (GitHub Pages, ein anderer Webspace oder lokal mit `python3 -m http.server 8000`). Dann in Chrome oder Edge
+  in der Adressleiste auf „App installieren“ klicken, in Safari auf dem Mac *Ablage → Zum Dock hinzufügen*.
+  Manifest (`manifest.webmanifest`), Icons (`icons/`) und Offline-Speicher (`sw.js`) sind dabei.
+- **Als einzelne Datei:** Eine eigenständige `No Limit.html` (alles in einer Datei) auf den Desktop legen und per
+  Doppelklick öffnen.
+
+Der Spielstand liegt jeweils im Browser der Adresse bzw. Datei. Zum Umziehen unter *Mehr → Spielstand*
+exportieren und dort wieder importieren.
+
 ## Features
 
 - **Tippen statt Knopf:** Tippe direkt auf die KI. Jeder Schadenspunkt bringt Tokens, jeder Sieg zusätzlich Beute.
@@ -81,7 +93,8 @@ Branch und Ordner `/ (root)` auswählen.
   sitzen schlanke Leisten (Helfer, Fähigkeiten, Upgrades | Prestige, Ziele, Mehr). Drüberfahren fährt das Menü
   seitlich aus, Klicken pinnt es offen – so kann man mehrmals hintereinander kaufen. Die Arena macht dabei Platz:
   KI, Fähigkeiten und Anzeigen gleiten auf die freie Seite. Auf dem Handy ist das Menü eine Karte von unten mit
-  Tab-Leiste am unteren Rand (antippen, hoch- oder runterziehen); halb offen bleibt die Arena frei.
+  Tab-Leiste am unteren Rand (antippen, hoch- oder runterziehen); halb offen bleibt die Arena frei. Im Querformat
+  gibt es am Handy die Leisten wie am Desktop (antippen statt drüberfahren), Kopf und Werte in einer Zeile.
   Das nächste Upgrade eines Helfers steht direkt unter ihm, der lohnendste Helfer ist als „Empfohlen“ markiert.
 - **Bedienung:** Gleitende Auswahl in den Tabs, kaufbare Preise als kräftige Knöpfe, Fortschrittsbalken bis zum
   nächsten Kauf, bei Helfern direkt der Zuwachs an Schaden/s, gekaufte Upgrades animieren heraus, im
@@ -99,3 +112,4 @@ Branch und Ordner `/ (root)` auswählen.
 | `style.css`  | Design                                    |
 | `logos.js`   | Generator für die KI-Logos                |
 | `game.js`    | Spiellogik, Balancing (oben in der Datei) |
+| `manifest.webmanifest`, `sw.js`, `icons/` | Installierbare App (PWA) und Offline-Speicher |

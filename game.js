@@ -4048,6 +4048,9 @@ function buildTree() {
       btn.addEventListener('click', () => {
         treeSel = node.id;
         renderTree();
+        // Ist die Detailleiste nicht sichtbar (niedriges Menü), dorthin scrollen
+        const detail = $('tree-detail');
+        if (getComputedStyle(detail).position !== 'sticky') detail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       });
       // Doppelklick lernt direkt eine Stufe
       btn.addEventListener('dblclick', () => learnNode(node.id, 1));
@@ -4143,8 +4146,10 @@ const TAB_ORDER = ['helpers', 'skills', 'upgrades', 'prestige', 'missions', 'mor
 // Zugeklappt sieht man nur die Tab-Leiste; halb offen bleibt die Arena darüber frei.
 const sheet = { level: 0 };
 
+// Karte von unten nur am Handy im Hochformat (bzw. in schmalen, hohen Fenstern); quer gibt es die Leisten.
+const SHEET_QUERY = '(max-width: 900px) and (orientation: portrait), (max-width: 900px) and (min-height: 521px)';
 function sheetMode() {
-  return window.matchMedia('(max-width: 900px)').matches;
+  return window.matchMedia(SHEET_QUERY).matches;
 }
 
 function sheetHeights() {
@@ -4214,13 +4219,28 @@ function initSheet() {
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
+  let wasSheet = null;
   const sync = () => {
-    if (sheetMode()) setSheet(sheet.level);
-    else {
+    const now = sheetMode();
+    if (now && wasSheet === false) {
+      // Ins Hochformat gedreht: ausgefahrenes Menü und Platz-Machen zurücksetzen
+      drawer.open = false;
+      drawer.pinned = false;
+      side.classList.remove('pinned');
+      document.body.classList.remove('drawer-open');
+      makeRoom();
+    }
+    if (now) setSheet(wasSheet === false ? 0 : sheet.level);
+    else if (wasSheet !== false) {
+      // Gedreht oder breiter geworden: Karte weg, Leisten übernehmen
       side.style.height = '';
       side.classList.remove('open');
       document.documentElement.style.removeProperty('--sheet-h');
+      drawer.open = false;
+      document.body.classList.remove('drawer-open');
+      makeRoom();
     }
+    wasSheet = now;
   };
   window.addEventListener('resize', sync);
   sync();
@@ -4279,6 +4299,7 @@ function makeRoom() {
   if (!drawer.open || sheetMode()) {
     a.style.removeProperty('--free-l');
     a.style.removeProperty('--free-r');
+    a.style.removeProperty('--shift');
     a.style.paddingLeft = '';
     a.style.paddingRight = '';
     return;
@@ -4288,10 +4309,13 @@ function makeRoom() {
   const enemyW = $('enemy').offsetWidth;
   const freeL = drawer.side === 'left' ? Math.max(0, side.right - arena.left + 8) : 0;
   const freeR = drawer.side === 'right' ? Math.max(0, arena.right - side.left + 8) : 0;
-  // so viel Innenabstand, dass die KI komplett neben dem Menü steht
-  const pad = Math.max(0, 2 * (Math.max(freeL, freeR) + 16) - arena.width + enemyW);
+  // Die KI steht mittig im freien Bereich zwischen Menü und gegenüberliegender Leiste –
+  // und auf keinen Fall unter dem Menü.
+  const free = Math.max(freeL, freeR);
+  const pad = Math.max(0, free - 72, 2 * (free + 16) - arena.width + enemyW);
   a.style.setProperty('--free-l', `${Math.round(freeL)}px`);
   a.style.setProperty('--free-r', `${Math.round(freeR)}px`);
+  a.style.setProperty('--shift', `${Math.round(freeL ? pad / 2 : -pad / 2)}px`);
   a.style.paddingLeft = freeL ? `${Math.round(pad)}px` : '';
   a.style.paddingRight = freeR ? `${Math.round(pad)}px` : '';
 }
@@ -4725,6 +4749,16 @@ function applyOfflineProgress() {
   showDialog({ title: 'Willkommen zurück', text: lines.join('\n') });
 }
 
+// Als App installierbar: nur wenn die Seite über eine Web-Adresse mit Manifest läuft
+function registerApp() {
+  try {
+    if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http') || !document.querySelector('link[rel="manifest"]')) return;
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  } catch {
+    // Ohne Service Worker läuft das Spiel genauso, nur nicht offline als App.
+  }
+}
+
 function init() {
   for (const el of document.querySelectorAll('[data-icon]')) el.innerHTML = icon(el.dataset.icon);
   $('golden').innerHTML = icon('token');
@@ -4798,6 +4832,7 @@ function init() {
   moveWeakSpot(Date.now());
   requestAnimationFrame(animateCounters);
   initParticles();
+  registerApp();
   // Auswahl-Pillen erst ohne Animation setzen, danach gleiten sie
   placePills();
   requestAnimationFrame(() => document.body.classList.add('pills-ready'));
