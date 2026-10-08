@@ -1256,11 +1256,11 @@ function defeatEnemy() {
   if (e.vortex && !e.forked) collectVortex(e.kind);
   if (!quiet && Date.now() - lastLimitPopup > 450) {
     lastLimitPopup = Date.now();
-    popup('Limit erreicht', 'limit', 50, 18);
-    popup(`+${fmt(loot)}`, 'loot', 50, 30, true);
+    popup('Limit erreicht', 'limit', freeX(50), 18);
+    popup(`+${fmt(loot)}`, 'loot', freeX(50), 30, true);
     deathEcho();
-    fxRing(50, 50, { size: 300, color: `hsl(${Math.round(t.hue)} 95% 64%)`, dur: 620, width: 6 });
-    fxBurst(50, 50, { count: e.vortex ? 30 : 22, hue: e.vortex ? 280 : t.hue, spread: 150, size: 10, fall: 60, dur: 850 });
+    fxRing(freeX(50), 50, { size: 300, color: `hsl(${Math.round(t.hue)} 95% 64%)`, dur: 620, width: 6 });
+    fxBurst(freeX(50), 50, { count: e.vortex ? 30 : 22, hue: e.vortex ? 280 : t.hue, spread: 150, size: 10, fall: 60, dur: 850 });
     SFX.kill();
   }
   // Forkt sich bzw. Schwarm: Die Kopien müssen auch noch besiegt werden.
@@ -1269,7 +1269,7 @@ function defeatEnemy() {
     const hp = e.forked ? t.maxHp : t.maxHp * (e.trait === 'swarm' ? SWARM_HP : FORK_HP);
     const copyKind = e.forked || e.trait;
     state.enemy = { kind: e.kind, seed: e.seed + 1, hp, maxHp: hp, trait: null, vortex: e.vortex, forked: copyKind, copiesLeft: copies - 1, spawnedAt: e.spawnedAt };
-    if (!quiet) popup(copyKind === 'swarm' ? 'Schwarm!' : 'Fork!', 'limit', 50, 30);
+    if (!quiet) popup(copyKind === 'swarm' ? 'Schwarm!' : 'Fork!', 'limit', freeX(50), 30);
     return;
   }
   if (state.enemyIndex === WAVE_SIZE - 1) {
@@ -1315,7 +1315,7 @@ function nextWave() {
   state.wave = from + (skip ? 2 : 1);
   state.enemyIndex = 0;
   state.runWave = Math.max(state.runWave, state.wave);
-  if (skip) popup('Wellensprung', 'limit', 50, 30);
+  if (skip) popup('Wellensprung', 'limit', freeX(50), 30);
   // Meilenstein alle 10 Wellen
   const milestone = Math.floor(state.wave / 10) * 10;
   if (milestone > from) {
@@ -1354,7 +1354,7 @@ function checkFleeting(now) {
   if (!quiet) {
     const stolen = state.tokens * FLEETING_STEAL;
     state.tokens -= stolen;
-    popup(stolen >= 1 ? `Entkommen · −${fmt(stolen)}` : 'Entkommen', 'blocked', 50, 22);
+    popup(stolen >= 1 ? `Entkommen · −${fmt(stolen)}` : 'Entkommen', 'blocked', freeX(50), 22);
     SFX.fail();
   }
   nextEnemy();
@@ -1501,7 +1501,7 @@ function weakRadius() {
 
 function breakChain(now) {
   if (chain.count >= 3) {
-    popup(`Kette gerissen · ${chain.count}`, 'blocked', 50, 22);
+    popup(`Kette gerissen · ${chain.count}`, 'blocked', freeX(50), 22);
     SFX.chainBreak();
   }
   chain.count = 0;
@@ -1617,7 +1617,7 @@ function doTap({ clientX = null, clientY = null, auto = false, passive = false }
 
   // Schadenszahl dort, wo getippt wurde (per Tastatur oder Sturm: rund um die Mitte)
   const arena = $('arena').getBoundingClientRect();
-  const x = clientX !== null ? (clientX - arena.left) / arena.width * 100 : randomBetween(38, 62);
+  const x = clientX !== null ? (clientX - arena.left) / arena.width * 100 : freeX(randomBetween(38, 62));
   const y = clientY !== null ? (clientY - arena.top) / arena.height * 100 - 8 : randomBetween(32, 55);
 
   // Glitcht: Manche Taps gehen ins Leere.
@@ -1669,7 +1669,7 @@ function doTap({ clientX = null, clientY = null, auto = false, passive = false }
   } else if (clientX !== null && !lucky && chain.count > 0) {
     if (chain.misses < mods.chainGrace) {
       chain.misses++;
-      popup('Knapp!', 'blocked', 50, 22);
+      popup('Knapp!', 'blocked', freeX(50), 22);
     } else {
       breakChain(now);
     }
@@ -1775,7 +1775,7 @@ function useSkill(id) {
   }
   if (now < st.readyAt) return;
   if (!state.boss && state.enemy.trait === 'silence') {
-    popup('Schweigepflicht', 'blocked', 50, 72);
+    popup('Schweigepflicht', 'blocked', freeX(50), 72);
     SFX.limited();
     return;
   }
@@ -1786,7 +1786,7 @@ function useSkill(id) {
   if (id === 'bomb') {
     clock = now;
     const dmg = (baseDps() * skillPower('bomb') + clickValue(now) * (20 + 10 * st.level) * mods.skillPower) * damageFactor('skill');
-    popup(`Superschlag −${fmt(dmg)}`, 'crit', 50, 40);
+    popup(`Superschlag −${fmt(dmg)}`, 'crit', freeX(50), 40);
     restartAnimation($('arena'), 'flash');
     restartAnimation($('arena'), 'shake');
     attack(dmg);
@@ -2427,10 +2427,74 @@ const series = { items: [], next: 0, perfect: 0, approach: 0, endedAt: 0, ball: 
 let nextSeriesAt = Date.now() + randomBetween(6000, 10_000);
 
 // 2 bis 5 Kreise – je länger die Krit-Kette, desto mehr
+// 3 bis 7 Kreise – je länger die Krit-Kette, desto mehr
 function seriesLength() {
   const c = chain.count;
-  const base = c < 5 ? 2 : c < 15 ? 3 : c < 35 ? 3.5 : 4.5;
-  return Math.min(5, Math.max(2, Math.round(base + randomBetween(-0.9, 0.9))));
+  const base = c < 5 ? 3 : c < 15 ? 4 : c < 35 ? 5 : 6;
+  return Math.min(7, Math.max(3, Math.round(base + randomBetween(-0.9, 0.9))));
+}
+
+const SERIES_GAP_PX = 48;  // Mindestabstand zweier Kreise (Kreise sind 40 px groß)
+
+// Bereiche mit Anzeigen (Combo, Kette, Countdown, Fähigkeiten): dort keine Kreise
+function hudZones(arena) {
+  const pad = 24;
+  // Offenes Menü am Desktop: auch dort keine Kreise
+  const els = [document.querySelector('.arena-left'), document.querySelector('.arena-corner'), $('skill-dock')];
+  if (drawer.open && !sheetMode()) els.push($('side'));
+  return els
+    .map(el => el.getBoundingClientRect())
+    .filter(r => r.width > 0 && r.height > 0)
+    .map(r => [r.left - arena.left - pad, r.top - arena.top - pad, r.right - arena.left + pad, r.bottom - arena.top + pad]);
+}
+
+function inZone([x, y], zones) {
+  return zones.some(([x1, y1, x2, y2]) => x > x1 && x < x2 && y > y1 && y < y2);
+}
+
+function spaced(pts) {
+  return pts.every((p, i) => pts.every((q, j) => j <= i || Math.hypot(p[0] - q[0], p[1] - q[1]) >= SERIES_GAP_PX));
+}
+
+// Am Rand: als Bogen um die KI herum oder im Zickzack seitlich an ihr vorbei – die KI bleibt frei.
+function edgePlacement(n, arena, zones) {
+  const er = $('enemy').getBoundingClientRect();
+  const cx = er.left - arena.left + er.width / 2;
+  const cy = er.top - arena.top + er.height / 2;
+  const r = er.width / 2;
+  const { width: w, height: h } = arena;
+  const m = 24;
+  const ok = p => p[0] > m && p[0] < w - m && p[1] > m && p[1] < h - m && !inZone(p, zones);
+  let mode = Math.random() < 0.65 ? 'orbit' : 'side';
+  for (let tries = 0; tries < 30; tries++) {
+    let pts;
+    if (mode === 'orbit') {
+      const rx = Math.max(r + 22, Math.min(w / 2 - m, r + 62));
+      const ry = Math.max(r * 0.8, Math.min(h / 2 - m, r + 30));
+      const step = SERIES_GAP_PX * 1.15 / ((rx + ry) / 2);
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const start = Math.random() * Math.PI * 2;
+      pts = Array.from({ length: n }, (_, i) => {
+        const a = start + dir * step * i;
+        return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
+      });
+    } else {
+      const left = Math.random() < 0.5;
+      const band = left ? [m, cx - r - 8] : [cx + r + 8, w - m];
+      if (band[1] - band[0] < 30) {
+        mode = 'orbit';
+        continue;
+      }
+      const x0 = (band[0] + band[1]) / 2;
+      const amp = Math.min(24, (band[1] - band[0]) / 2 - 4);
+      const top = h * 0.18;
+      const step = (h * 0.62) / (n - 1);
+      pts = Array.from({ length: n }, (_, i) => [x0 + (i % 2 ? amp : -amp), top + step * i]);
+      if (Math.random() < 0.5) pts.reverse();
+    }
+    if (pts.every(ok) && spaced(pts)) return pts;
+  }
+  return null;
 }
 
 // Am Anfang gemütlich, mit der Schwierigkeit der Kette schneller
@@ -2451,17 +2515,17 @@ function maybeChainSeries(now) {
 const bezier = (sl, t) => [0, 1].map(k => (1 - t) ** 2 * sl.p[k] + 2 * (1 - t) * t * sl.c[k] + t ** 2 * sl.q[k]);
 
 // Bogen an einem Kreis: ein kleiner Schwung zu einem Endpunkt, frei von den anderen Kreisen
-function planSlider(p, others, box) {
-  const len = Math.min(88, box.w * 0.24);
-  for (let tries = 0; tries < 14; tries++) {
+function planSlider(p, others, box, zones = []) {
+  const len = Math.min(72, box.w * 0.2);
+  for (let tries = 0; tries < 18; tries++) {
     const a = Math.random() * Math.PI * 2;
     const q = [p[0] + Math.cos(a) * len, p[1] + Math.sin(a) * len];
-    if (q[0] < box.x || q[0] > box.x + box.w || q[1] < box.y || q[1] > box.y + box.h) continue;
+    if (q[0] < box.x || q[0] > box.x + box.w || q[1] < box.y || q[1] > box.y + box.h || inZone(q, zones)) continue;
     const bend = (Math.random() < 0.5 ? -1 : 1) * len * randomBetween(0.35, 0.55);
     const c = [(p[0] + q[0]) / 2 - Math.sin(a) * bend, (p[1] + q[1]) / 2 + Math.cos(a) * bend];
     const sl = { p, c, q, ms: 260 };
     const samples = [0.35, 0.65, 1].map(t => bezier(sl, t));
-    if (samples.every(([x, y]) => others.every(o => Math.hypot(o[0] - x, o[1] - y) > 62))) return sl;
+    if (samples.every(([x, y]) => others.every(o => Math.hypot(o[0] - x, o[1] - y) > 50))) return sl;
   }
   return null;
 }
@@ -2523,8 +2587,8 @@ function seriesPoints(n, box, tries = 0) {
   const ox = box.x + randomBetween(0, box.w - bw * k);
   const oy = box.y + randomBetween(0, box.h - bh * k);
   pts = pts.map(([x, y]) => [ox + (x - bx) * k, oy + (y - by) * k]);
-  const tight = pts.some((p, i) => pts.some((q, j) => j > i && Math.hypot(p[0] - q[0], p[1] - q[1]) < 60));
-  return tight && tries < 6 ? seriesPoints(n, box, tries + 1) : { pts, kind };
+  const bad = !spaced(pts) || (box.zones && pts.some(p => inZone(p, box.zones)));
+  return bad && tries < 8 ? seriesPoints(n, box, tries + 1) : { pts, kind };
 }
 
 function spawnSeries() {
@@ -2532,9 +2596,10 @@ function spawnSeries() {
   const n = seriesLength();
   const beat = seriesBeat();
   const approach = seriesApproach();
-  // Freie Fläche: unter den Anzeigen oben, über den Fähigkeiten unten
-  const box = { x: arena.width * 0.12, y: arena.height * 0.22, w: arena.width * 0.76, h: arena.height * 0.5 };
-  const { pts: points } = seriesPoints(n, box);
+  // Meist am Rand rund um die KI, manchmal als freies Muster über ihr
+  const zones = hudZones(arena);
+  const box = { x: arena.width * 0.1, y: arena.height * 0.18, w: arena.width * 0.8, h: arena.height * 0.58, zones };
+  const points = (Math.random() < 0.75 && edgePlacement(n, arena, zones)) || seriesPoints(n, box).pts;
   // Bögen (freigeschaltet): meist einer, bei langer Kette auch zwei
   const sliders = [];
   if (hasUnlock('slider')) {
@@ -2543,7 +2608,7 @@ function spawnSeries() {
     for (const i of order) {
       if (sliders.filter(Boolean).length >= count) break;
       const others = points.filter((_, j) => j !== i).concat(sliders.filter(Boolean).map(sl => sl.q));
-      sliders[i] = planSlider(points[i], others, box);
+      sliders[i] = planSlider(points[i], others, { x: 22, y: 22, w: arena.width - 44, h: arena.height - 44 }, zones);
     }
   }
   // Am Anfang immer gleichmäßig, später auch Doppeltakt oder schneller werdend
@@ -2558,7 +2623,7 @@ function spawnSeries() {
   layer.replaceChildren();
   const r = Math.round;
   const line = points.flatMap((p, i) => (sliders[i] ? [p, sliders[i].q] : [p])).map(p => p.map(r).join(',')).join(' ');
-  const tracks = sliders.map((sl, i) => (sl ? ((d) => `<g class="slider-track" data-slider="${i}"><path class="st-edge" d="${d}"/><path class="st-fill" d="${d}"/><path class="st-progress" pathLength="1" d="${d}"/><circle class="st-end" cx="${r(sl.q[0])}" cy="${r(sl.q[1])}" r="21"/>${[1, 2].map(k => { const [x, y] = bezier(sl, k / 3); return `<circle class="st-tick" data-tick="${k}" cx="${r(x)}" cy="${r(y)}" r="5"/>`; }).join('')}</g>`)(`M${sl.p.map(r).join(' ')}Q${sl.c.map(r).join(' ')} ${sl.q.map(r).join(' ')}`) : '')).join('');
+  const tracks = sliders.map((sl, i) => (sl ? ((d) => `<g class="slider-track" data-slider="${i}"><path class="st-edge" d="${d}"/><path class="st-fill" d="${d}"/><path class="st-progress" pathLength="1" d="${d}"/><circle class="st-end" cx="${r(sl.q[0])}" cy="${r(sl.q[1])}" r="15"/>${[1, 2].map(k => { const [x, y] = bezier(sl, k / 3); return `<circle class="st-tick" data-tick="${k}" cx="${r(x)}" cy="${r(y)}" r="3.5"/>`; }).join('')}</g>`)(`M${sl.p.map(r).join(' ')}Q${sl.c.map(r).join(' ')} ${sl.q.map(r).join(' ')}`) : '')).join('');
   layer.insertAdjacentHTML('beforeend', `<svg class="series-path" viewBox="0 0 ${r(arena.width)} ${r(arena.height)}" aria-hidden="true"><polyline points="${line}"/>${tracks}</svg>`);
   const toPct = ([x, y]) => [x / arena.width * 100, y / arena.height * 100];
   series.items = points.map((p, i) => {
@@ -2607,8 +2672,8 @@ function spawnSeries() {
   series.perfect = 0;
   series.approach = approach;
   series.arena = arena;
-  if (state.seriesDone < 2) popup('Tippe die Kreise im Takt', 'limit', 50, 12);
-  else if (sliders.some(Boolean) && state.seriesDone < 6) popup('Bogen: halten und folgen', 'limit', 50, 12);
+  if (state.seriesDone < 2) popup('Tippe die Kreise im Takt', 'limit', freeX(50), 12);
+  else if (sliders.some(Boolean) && state.seriesDone < 6) popup('Bogen: halten und folgen', 'limit', freeX(50), 12);
 }
 
 function seriesReady(item) {
@@ -2800,9 +2865,9 @@ function landSeries(item, perfect, slid = false, fast = false) {
   const dmg = clickValue(now) * comboMult() * focus * critMult * (perfect ? SERIES_PERFECT_MULT : 1) * slideMult * damageFactor('tap');
   const [px, py] = slid && item.slider ? [item.slider.q[0] / series.arena.width * 100, item.slider.q[1] / series.arena.height * 100] : [item.x, item.y];
   const label = slid ? (fast ? 'Blitzbogen' : perfect ? 'Perfekter Bogen' : 'Bogen') : (perfect ? 'Perfekt' : 'Treffer');
-  popup(`${label} −${fmt(dmg, 1)}`, perfect || fast ? 'crit perfect' : 'crit', px, py - 10);
-  fxRing(px, py, { size: perfect ? 130 : 100, color: perfect || fast ? '#ffcc00' : 'var(--accent)', dur: 450, width: 4 });
-  fxBurst(px, py, { count: perfect ? 12 : 7, color: perfect ? '#ffcc00' : null, hue: 20, spread: perfect ? 80 : 55, size: 6, fall: 14 });
+  popup(`${label} −${fmt(dmg, 1)}`, `crit flowpop${perfect || fast ? ' perfect' : ''}`, px, py - 9);
+  fxRing(px, py, { size: perfect ? 92 : 70, color: perfect || fast ? '#ffcc00' : 'var(--accent)', dur: 420, width: 3 });
+  fxBurst(px, py, { count: perfect ? 10 : 6, color: perfect ? '#ffcc00' : null, hue: 20, spread: perfect ? 60 : 42, size: 5, fall: 10 });
   SFX.flow(i, perfect);
   haptic();
   restartAnimation($('glyph'), 'hit');
@@ -2819,9 +2884,9 @@ function finishSeries(now) {
   if (allPerfect) state.seriesPerfect++;
   missionProgress('series');
   const dmg = clickValue(now) * comboMult() * chainCritMult() * n * (allPerfect ? 2 : 1) * damageFactor('tap');
-  popup(`${allPerfect ? 'Perfekte Serie' : 'Serie'} ×${n} · −${fmt(dmg, 1)}`, 'crit huge', 50, 26);
-  fxRing(50, 48, { size: 320, color: allPerfect ? '#ffcc00' : 'var(--accent)', dur: 700, width: 5 });
-  fxBurst(50, 48, { count: 26, color: allPerfect ? '#ffcc00' : null, hue: 25, spread: 170, size: 8, fall: 60, dur: 900 });
+  popup(`${allPerfect ? 'Perfekte Serie' : 'Serie'} ×${n} · −${fmt(dmg, 1)}`, 'crit huge', freeX(50), 26);
+  fxRing(freeX(50), 48, { size: 320, color: allPerfect ? '#ffcc00' : 'var(--accent)', dur: 700, width: 5 });
+  fxBurst(freeX(50), 48, { count: 26, color: allPerfect ? '#ffcc00' : null, hue: 25, spread: 170, size: 8, fall: 60, dur: 900 });
   restartAnimation($('arena'), 'flash');
   restartAnimation($('arena'), 'shake');
   SFX.flowDone(allPerfect);
@@ -2896,7 +2961,8 @@ function spawnAttack(now) {
   let x = 50;
   let y = 50;
   for (let tries = 0; tries < 12; tries++) {
-    x = randomBetween(14, 86);
+    const free = arenaFree();
+    x = randomBetween(14 + free.left, 86 - free.right);
     y = randomBetween(26, 70);
     if (attacks.every(a => Math.hypot(a.x - x, (a.y - y) * 1.3) > 20)) break;
   }
@@ -3465,6 +3531,7 @@ function buildGenerators() {
       </span>
       <span class="price"><span class="price-qty"></span><span class="price-val"></span>${icon('token')}</span>`;
     btn.addEventListener('click', () => buyGenerator(g));
+    btn.addEventListener('animationend', () => btn.classList.remove('bought'));
     // Das nächste Upgrade dieses Helfers, direkt zum Antippen
     const strip = document.createElement('button');
     strip.className = 'gen-up';
@@ -3493,6 +3560,7 @@ function buildGenerators() {
       restartAnimation(strip, 'bought');
       buyUpgrade(entry.upgrade);
     });
+    strip.addEventListener('animationend', () => strip.classList.remove('bought'));
     genEls.set(g.id, entry);
   }
 }
@@ -3614,8 +3682,10 @@ function renderUpgrades() {
     if (!btn.disabled) affordable++;
   }
   const badge = $('upgrade-badge');
-  badge.hidden = affordable === 0 || state.tab === 'upgrades';
+  badge.hidden = affordable === 0 || panelVisible('upgrades');
   badge.textContent = String(affordable);
+  $('rail-badge-upgrades').hidden = badge.hidden;
+  $('rail-badge-upgrades').textContent = badge.textContent;
 }
 
 let dexKey = '';
@@ -4048,8 +4118,10 @@ function renderTree() {
 function renderPrestige() {
   const affordable = TREE.filter(canLearn).length;
   const badge = $('prestige-badge');
-  badge.hidden = affordable === 0 || state.tab === 'prestige';
+  badge.hidden = affordable === 0 || panelVisible('prestige');
   badge.textContent = String(affordable);
+  $('rail-badge-prestige').hidden = badge.hidden;
+  $('rail-badge-prestige').textContent = badge.textContent;
   if (state.tab !== 'prestige') return;
   const gain = prestigeGain();
   $('version').textContent = `v${version()}`;
@@ -4154,6 +4226,184 @@ function initSheet() {
   sync();
 }
 
+// ---------- Desktop: Menü fährt seitlich aus der Arena aus ----------
+const TAB_INFO = {
+  helpers: { name: 'Helfer', icon: 'agents', side: 'left' },
+  skills: { name: 'Fähigkeiten', icon: 'storm', side: 'left' },
+  upgrades: { name: 'Upgrades', icon: 'layers', side: 'left' },
+  prestige: { name: 'Prestige', icon: 'compress', side: 'right' },
+  missions: { name: 'Ziele', icon: 'checklist', side: 'right' },
+  more: { name: 'Mehr', icon: 'more', side: 'right' },
+};
+const drawer = { open: false, pinned: false, side: 'left', timer: 0, swap: 0 };
+
+function panelVisible(tab) {
+  if (state.tab !== tab) return false;
+  return sheetMode() ? sheet.level > 0 : drawer.open;
+}
+
+// Lage: direkt neben der Leiste, über der Arena
+function placeDrawer() {
+  if (sheetMode()) return;
+  const app = document.querySelector('.app').getBoundingClientRect();
+  const arena = $('arena').getBoundingClientRect();
+  const width = Math.min(480, arena.width * 0.46);
+  const inset = 72;
+  const left = drawer.side === 'left' ? arena.left - app.left + inset : arena.right - app.left - inset - width;
+  // Endlage merken (das Menü gleitet noch herein, sein Rechteck ist dann kleiner)
+  drawer.box = { left: left + app.left, right: left + app.left + width };
+  const root = document.documentElement.style;
+  root.setProperty('--drawer-left', `${Math.round(left)}px`);
+  root.setProperty('--drawer-top', `${Math.round(arena.top - app.top + 10)}px`);
+  root.setProperty('--drawer-w', `${Math.round(width)}px`);
+  // Nur so hoch wie die Arena: KI-Infos und Boss-Leiste darunter bleiben sichtbar
+  root.setProperty('--drawer-h', `${Math.round(arena.height - 20)}px`);
+}
+
+// Allgemeine Einblendungen (ohne Tap-Position) in den freien Teil der Arena legen
+function freeX(x) {
+  const f = arenaFree();
+  return f.left + x * (100 - f.left - f.right) / 100;
+}
+
+// Freier Teil der Arena (in Prozent ihrer Breite), wenn das Menü offen ist
+function arenaFree() {
+  const a = $('arena');
+  const w = a.clientWidth || 1;
+  return { left: (parseFloat(a.style.getPropertyValue('--free-l')) || 0) / w * 100, right: (parseFloat(a.style.getPropertyValue('--free-r')) || 0) / w * 100 };
+}
+
+// Die Arena macht Platz: KI, Fähigkeiten und Anzeigen gleiten auf die freie Seite.
+function makeRoom() {
+  const a = $('arena');
+  if (!drawer.open || sheetMode()) {
+    a.style.removeProperty('--free-l');
+    a.style.removeProperty('--free-r');
+    a.style.paddingLeft = '';
+    a.style.paddingRight = '';
+    return;
+  }
+  const arena = a.getBoundingClientRect();
+  const side = drawer.box || $('side').getBoundingClientRect();
+  const enemyW = $('enemy').offsetWidth;
+  const freeL = drawer.side === 'left' ? Math.max(0, side.right - arena.left + 8) : 0;
+  const freeR = drawer.side === 'right' ? Math.max(0, arena.right - side.left + 8) : 0;
+  // so viel Innenabstand, dass die KI komplett neben dem Menü steht
+  const pad = Math.max(0, 2 * (Math.max(freeL, freeR) + 16) - arena.width + enemyW);
+  a.style.setProperty('--free-l', `${Math.round(freeL)}px`);
+  a.style.setProperty('--free-r', `${Math.round(freeR)}px`);
+  a.style.paddingLeft = freeL ? `${Math.round(pad)}px` : '';
+  a.style.paddingRight = freeR ? `${Math.round(pad)}px` : '';
+}
+
+function openDrawer(tab) {
+  const info = TAB_INFO[tab];
+  clearTimeout(drawer.timer);
+  const side = $('side');
+  // Andere Seite: kurz einklappen, dann auf der neuen Seite ausfahren
+  if (drawer.open && drawer.side !== info.side) {
+    side.classList.remove('open');
+    clearTimeout(drawer.swap);
+    drawer.swap = setTimeout(() => openDrawer(tab), 160);
+    drawer.open = false;
+    makeRoom();
+    return;
+  }
+  const from = TAB_ORDER.indexOf(state.tab);
+  $('side-body').dataset.dir = TAB_ORDER.indexOf(tab) >= from ? 'right' : 'left';
+  if (state.tab !== tab) $('side-body').scrollTop = 0;
+  drawer.side = info.side;
+  side.classList.toggle('dock-left', info.side === 'left');
+  side.classList.toggle('dock-right', info.side === 'right');
+  placeDrawer();
+  $('drawer-title').textContent = info.name;
+  $('drawer-icon').innerHTML = icon(info.icon);
+  drawer.open = true;
+  side.classList.add('open');
+  document.body.classList.add('drawer-open');
+  makeRoom();
+  state.tab = tab;
+  renderTabs();
+  render();
+}
+
+function closeDrawer() {
+  drawer.open = false;
+  drawer.pinned = false;
+  $('side').classList.remove('open', 'pinned');
+  document.body.classList.remove('drawer-open');
+  makeRoom();
+  renderRails();
+}
+
+function scheduleDrawerClose() {
+  clearTimeout(drawer.timer);
+  if (!drawer.pinned) drawer.timer = setTimeout(closeDrawer, 420);
+}
+
+function renderRails() {
+  for (const btn of document.querySelectorAll('.rail-btn')) {
+    btn.classList.toggle('active', drawer.open && btn.dataset.rail === state.tab);
+  }
+}
+
+function initDrawer() {
+  const side = $('side');
+  for (const btn of document.querySelectorAll('.rail-btn')) {
+    // Kurz verweilen: erst fährt der Name aus, dann das Menü (ist es schon offen, wechselt es sofort)
+    btn.addEventListener('pointerenter', e => {
+      if (e.pointerType !== 'mouse' || sheetMode()) return;
+      clearTimeout(drawer.intent);
+      clearTimeout(drawer.timer);
+      if (drawer.open) openDrawer(btn.dataset.rail);
+      else drawer.intent = setTimeout(() => openDrawer(btn.dataset.rail), 150);
+    });
+    btn.addEventListener('pointerleave', e => {
+      if (e.pointerType !== 'mouse') return;
+      clearTimeout(drawer.intent);
+      scheduleDrawerClose();
+    });
+    // Klicken pinnt das Menü offen; nochmal klicken schließt es.
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (sheetMode()) return;
+      if (drawer.open && drawer.pinned && state.tab === btn.dataset.rail) {
+        closeDrawer();
+        return;
+      }
+      drawer.pinned = true;
+      side.classList.add('pinned');
+      openDrawer(btn.dataset.rail);
+    });
+  }
+  side.addEventListener('pointerenter', e => {
+    if (e.pointerType === 'mouse') clearTimeout(drawer.timer);
+  });
+  side.addEventListener('pointerleave', e => {
+    if (e.pointerType === 'mouse' && !sheetMode()) scheduleDrawerClose();
+  });
+  // Etwas im Menü angeklickt: offen halten, damit man mehrmals hintereinander kaufen kann
+  side.addEventListener('pointerdown', () => {
+    if (sheetMode() || !drawer.open) return;
+    drawer.pinned = true;
+    side.classList.add('pinned');
+  });
+  $('drawer-pin').addEventListener('click', closeDrawer);
+  document.addEventListener('pointerdown', e => {
+    if (sheetMode() || !drawer.open || side.contains(e.target) || e.target.closest?.('.rail, .modal, #island')) return;
+    // Tippen auf die KI darf das gepinnte Menü offen lassen
+    if (e.target.closest?.('#enemy, .flow, .boss-attack, .dock-skill')) return;
+    closeDrawer();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && drawer.open) closeDrawer();
+  });
+  window.addEventListener('resize', () => {
+    if (drawer.open) placeDrawer();
+    makeRoom();
+  });
+}
+
 // Gleitende Auswahl-Pille hinter dem aktiven Segment (Tabs und Kaufmenge)
 function placePill(group) {
   let pill = group.querySelector(':scope > .seg-pill');
@@ -4185,6 +4435,7 @@ function renderTabs() {
     $(`tab-${btn.dataset.tab}`).hidden = !active;
   }
   placePills();
+  renderRails();
 }
 
 function render() {
@@ -4427,7 +4678,7 @@ function tick() {
   updateSeries(now);
   if (now - lastAutoPopup >= 1000 && currentDps(now) > 0) {
     lastAutoPopup = now;
-    popup(`−${fmt(currentDps(now), 1)}`, 'auto', randomBetween(30, 70), randomBetween(55, 75));
+    popup(`−${fmt(currentDps(now), 1)}`, 'auto', freeX(randomBetween(30, 70)), randomBetween(55, 75));
   }
   state.maxSeen = Math.max(state.maxSeen, now);
   checkAchievements();
@@ -4531,6 +4782,7 @@ function init() {
     });
   }
   initSheet();
+  initDrawer();
   for (const btn of document.querySelectorAll('[data-amount]')) {
     btn.addEventListener('click', () => {
       state.buyAmount = btn.dataset.amount === 'max' ? 'max' : Number(btn.dataset.amount);

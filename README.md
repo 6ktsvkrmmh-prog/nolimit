@@ -77,8 +77,11 @@ Branch und Ordner `/ (root)` auswählen.
 - **Hintergrund-Partikel je KI:** Jede KI hat ihr eigenes Partikelprofil – Form (Funken, Pixel, Ringe, Striche,
   Punkte) mit Zweitform und Zweitfarbe, Bewegung (funkeln, kreisen, rieseln, treiben, ausstrahlen, aufsteigen),
   Tempo und Dichte. Beim Wochenlimit steigt Glut auf, bei Dark Vortex wirbeln die Teilchen ins Zentrum.
-- **Aufbau:** Auf dem Handy ist das Menü eine Karte von unten mit Tab-Leiste am unteren Rand (antippen, hoch- oder
-  runterziehen); halb offen bleibt die Arena frei. Am Desktop bleibt die rechte Karte stehen, nur ihr Inhalt scrollt.
+- **Aufbau:** Am Desktop gibt es keine Seitenspalte mehr: Die Arena nimmt die ganze Breite ein, links und rechts
+  sitzen schlanke Leisten (Helfer, Fähigkeiten, Upgrades | Prestige, Ziele, Mehr). Drüberfahren fährt das Menü
+  seitlich aus, Klicken pinnt es offen – so kann man mehrmals hintereinander kaufen. Die Arena macht dabei Platz:
+  KI, Fähigkeiten und Anzeigen gleiten auf die freie Seite. Auf dem Handy ist das Menü eine Karte von unten mit
+  Tab-Leiste am unteren Rand (antippen, hoch- oder runterziehen); halb offen bleibt die Arena frei.
   Das nächste Upgrade eines Helfers steht direkt unter ihm, der lohnendste Helfer ist als „Empfohlen“ markiert.
 - **Bedienung:** Gleitende Auswahl in den Tabs, kaufbare Preise als kräftige Knöpfe, Fortschrittsbalken bis zum
   nächsten Kauf, bei Helfern direkt der Zuwachs an Schaden/s, gekaufte Upgrades animieren heraus, im

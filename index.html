@@ -121,8 +121,20 @@
         <div id="throttle" class="throttle" hidden>429 · Too Many Requests</div>
         <p id="tap-hint" class="tap-hint">Tippe auf die KI, um ihr Limit zu verbrauchen.</p>
         <div id="skill-dock" class="skill-dock" aria-label="Fähigkeiten"></div>
+        <!-- Desktop: Menü-Leisten am Rand der Arena; Drüberfahren fährt das Menü aus -->
+        <nav class="rail rail-left" aria-label="Helfer, Fähigkeiten, Upgrades">
+          <button class="rail-btn" data-rail="helpers"><span class="rail-icon" data-icon="agents"></span><span class="rail-label">Helfer</span></button>
+          <button class="rail-btn" data-rail="skills"><span class="rail-icon" data-icon="storm"></span><span class="rail-label">Fähigkeiten</span></button>
+          <button class="rail-btn" data-rail="upgrades"><span class="rail-icon" data-icon="layers"></span><span class="rail-label">Upgrades</span><span id="rail-badge-upgrades" class="badge rail-badge" hidden></span></button>
+        </nav>
+        <nav class="rail rail-right" aria-label="Prestige, Ziele, Mehr">
+          <button class="rail-btn" data-rail="prestige"><span class="rail-icon" data-icon="compress"></span><span class="rail-label">Prestige</span><span id="rail-badge-prestige" class="badge rail-badge" hidden></span></button>
+          <button class="rail-btn" data-rail="missions"><span class="rail-icon" data-icon="checklist"></span><span class="rail-label">Ziele</span></button>
+          <button class="rail-btn" data-rail="more"><span class="rail-icon" data-icon="more"></span><span class="rail-label">Mehr</span></button>
+        </nav>
       </div>
 
+      <div class="stage-foot">
       <div class="enemy-info">
         <div class="enemy-title">
           <span id="enemy-name" class="enemy-name"></span>
@@ -144,6 +156,7 @@
         </div>
       </div>
 
+      <div class="foot-side">
       <div id="buff" class="buff" hidden></div>
 
       <div class="week">
@@ -158,10 +171,17 @@
           <button id="retreat-btn" class="pill-btn" hidden>Rückzug</button>
         </div>
       </div>
+      </div>
+      </div>
     </section>
 
     <section id="side" class="card side">
       <div id="sheet-handle" class="sheet-handle" aria-hidden="true"><span></span></div>
+      <div class="drawer-head">
+        <span id="drawer-icon" class="drawer-icon"></span>
+        <span id="drawer-title" class="drawer-title"></span>
+        <button id="drawer-pin" class="drawer-pin" aria-label="Menü schließen"></button>
+      </div>
       <div class="segmented tabs" role="tablist" aria-label="Bereiche">
         <button role="tab" data-tab="helpers" aria-selected="true"><span class="tab-icon" data-icon="agents"></span><span class="tab-label">Helfer</span></button>
         <button role="tab" data-tab="skills" aria-selected="false"><span class="tab-icon" data-icon="storm"></span><span class="tab-label"><span class="tab-long">Fähigkeiten</span><span class="tab-short">Skills</span></span></button>
@@ -269,6 +289,7 @@
         <div class="group">
           <h2>So funktioniert's</h2>
           <ul class="howto">
+            <li>Am Desktop öffnest du die Menüs über die Leisten links und rechts in der Arena: drüberfahren zum Ausfahren, klicken zum Offenhalten. Auf dem Handy über die Leiste am unteren Rand.</li>
             <li>Tippe auf die KI. Neue Kampf-Mechaniken schaltest du nach und nach im Tab „Upgrades“ frei: erst kritische Treffer, dann die Krit-Kette, dann Flow-Serien und Bögen. Freischaltungen bleiben auch nach dem Prestige.</li>
             <li>Mit kritischen Treffern leuchtet ein Punkt auf jeder KI. Triffst du ihn, ist es ein kritischer Treffer.</li>
             <li>Schnell hintereinander tippen baut eine Combo auf, die deinen Schaden erhöht.</li>
