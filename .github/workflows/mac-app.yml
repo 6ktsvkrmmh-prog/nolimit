@@ -1,0 +1,70 @@
+# Baut No Limit als Mac-App (.dmg für Intel und Apple-Chips) und stellt sie auf die Download-Seite (Releases).
+name: Mac-App bauen
+
+on:
+  push:
+    branches: ['claude/friendly-hawking-yvuraw']
+    paths:
+      - index.html
+      - style.css
+      - logos.js
+      - game.js
+      - 'icons/**'
+      - 'src-tauri/**'
+      - .github/workflows/mac-app.yml
+      - .github/scripts/webkit-smoke.js
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mac-app
+  cancel-in-progress: true
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Spiel in WebKit testen (Technik der Mac-App)
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install webkit
+          python3 -m http.server 8000 >/dev/null 2>&1 &
+          sleep 1
+          node .github/scripts/webkit-smoke.js http://127.0.0.1:8000/
+
+      - name: Rust für Intel und Apple-Chips
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: App bauen
+        run: npx --yes @tauri-apps/cli@2.11.5 build --target universal-apple-darwin --bundles dmg --config '{"version":"1.0.${{ github.run_number }}"}'
+
+      - name: Datei benennen
+        run: |
+          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg No-Limit-Mac.dmg
+          ls -la No-Limit-Mac.dmg
+
+      - name: Auf die Download-Seite stellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'NOTES'
+          **No Limit für den Mac** (Intel und Apple-Chips, ab macOS 11)
+
+          1. `No-Limit-Mac.dmg` herunterladen und öffnen.
+          2. **No Limit** in den Ordner **Programme** ziehen.
+          3. Beim ersten Start meldet macOS, dass die App nicht überprüft werden kann (sie ist nicht bei Apple registriert).
+             Dann **Systemeinstellungen → Datenschutz & Sicherheit** öffnen, nach unten scrollen und bei „No Limit“ auf
+             **Dennoch öffnen** klicken. Danach startet die App ganz normal.
+
+          Spielstand aus dem Browser mitnehmen: dort *Mehr → Spielstand → Exportieren*, in der App *Importieren*.
+          NOTES
+          gh release delete mac-app --cleanup-tag --yes || true
+          gh release create mac-app No-Limit-Mac.dmg \
+            --title "No Limit für Mac (Version 1.0.${{ github.run_number }})" \
+            --notes-file notes.md \
+            --target "${{ github.sha }}" \
+            --latest
