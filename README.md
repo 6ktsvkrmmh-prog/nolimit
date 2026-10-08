@@ -22,7 +22,13 @@ Branch und Ordner `/ (root)` auswählen.
 
 ### Als App auf dem Desktop
 
-- **Als installierte App (mit Icon, eigenem Fenster, offline spielbar):** Die Seite über eine Web-Adresse öffnen,
+- **Als Mac-App zum Herunterladen:** [No-Limit-Mac.dmg](https://github.com/6ktsvkrmmh-prog/nolimit/releases/download/mac-app/No-Limit-Mac.dmg)
+  (Intel und Apple-Chips, ab macOS 11, rund 4 MB) öffnen und **No Limit** in den Ordner *Programme* ziehen. Die App
+  ist nicht bei Apple registriert: Beim ersten Start einmal *Systemeinstellungen → Datenschutz & Sicherheit →
+  Dennoch öffnen* wählen. Gebaut wird sie mit [Tauri](https://tauri.app) (`src-tauri/`) vom Ablauf „Mac-App bauen“
+  (`.github/workflows/mac-app.yml`), sobald sich das Spiel ändert; er testet das Spiel vorher in WebKit und stellt
+  die neue Version als Release `mac-app` bereit.
+- **Als installierte Web-App (mit Icon, eigenem Fenster, offline spielbar):** Die Seite über eine Web-Adresse öffnen,
   z. B. <https://6ktsvkrmmh-prog.github.io/nolimit/> (der Ablauf „App veröffentlichen“ in `.github/workflows/app.yml` bringt jeden Push dorthin und prüft die App danach mit Chrome), einen anderen
   Webspace oder lokal mit `python3 -m http.server 8000`. Dann in Chrome oder Edge in der Adressleiste auf
   „App installieren“ klicken, in Safari auf dem Mac *Ablage → Zum Dock hinzufügen*.
