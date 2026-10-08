@@ -1400,6 +1400,75 @@ button { font: inherit; color: inherit; }
 .flow.ripe .flow-ring { border-color: #ffcc00; box-shadow: 0 0 14px rgba(255, 204, 0, 0.75); }
 .slider-track .st-progress { fill: none; stroke: var(--accent); stroke-width: 44; stroke-linecap: round; stroke-dasharray: 0 1; opacity: 0.85; }
 
+/* ---------- Hintergrund-Partikel ---------- */
+.arena-particles { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* ---------- Bedienung: gleitende Auswahl, Kaufbares, Hover ---------- */
+.segmented.has-pill { position: relative; isolation: isolate; }
+.seg-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.pills-ready .seg-pill { transition: transform 0.42s var(--spring), width 0.42s var(--spring), height 0.3s var(--ease); }
+.segmented.has-pill button[aria-selected="true"], .segmented.has-pill button.active { background: transparent; box-shadow: none; }
+.segmented button { transition: color 0.2s, opacity 0.2s; }
+.segmented.has-pill button:not([aria-selected="true"]):not(.active) { color: var(--muted); }
+@media (hover: hover) {
+  .segmented.has-pill button:not([aria-selected="true"]):not(.active):hover { color: var(--text); }
+}
+
+/* Kaufbar: Preis als kräftiger Knopf; sonst Fortschritt bis zum Kauf */
+.row:not(:disabled) .price, .upgrade:not(:disabled) .price { background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 8px rgba(217, 119, 87, 0.28); }
+.price { transition: transform 0.2s var(--spring), box-shadow 0.2s, background 0.2s, color 0.2s; }
+.buy-progress { display: block; height: 3px; margin-top: 6px; border-radius: 2px; background: var(--fill-2); overflow: hidden; }
+.buy-progress span, .card-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.35s var(--ease);
+}
+.row:not(:disabled) .buy-progress { opacity: 0; }
+.row.teaser .buy-progress { display: none; }
+.upgrade { position: relative; overflow: hidden; }
+.card-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: transparent; }
+.upgrade:not(:disabled) .card-progress { opacity: 0; }
+.tile { transition: transform 0.25s var(--spring); }
+@media (hover: hover) {
+  .row:not(:disabled):hover .tile { transform: scale(1.08) rotate(-5deg); }
+  .row:not(:disabled):hover .price, .upgrade:not(:disabled):hover .price { transform: scale(1.06); box-shadow: 0 6px 16px rgba(217, 119, 87, 0.4); }
+  .upgrade:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1); background: var(--fill-2); }
+  .upgrade:not(:disabled):hover .tile { transform: scale(1.1) rotate(-6deg); }
+  .node:hover { box-shadow: 0 0 0 2px var(--fill), 0 0 0 4px var(--accent-soft), 0 6px 16px rgba(0, 0, 0, 0.12); }
+}
+.row:active:not(:disabled) { transform: scale(0.985); }
+.upgrade.bought { pointer-events: none; animation: cardBought 0.38s var(--ease) forwards; }
+.upgrade.bought .price { background: var(--success); color: #fff; }
+@keyframes cardBought { 30% { transform: scale(1.04); } to { transform: scale(0.85); opacity: 0; } }
+.skill-pips i { transition: background 0.2s; }
+.skill-pips i.on { animation: pipPop 0.35s var(--spring); }
+@keyframes pipPop { 50% { transform: scaleY(1.8); } }
+.node.learn-pop { animation: learnPop 0.45s var(--spring); }
+@keyframes learnPop { 40% { transform: scale(1.22); box-shadow: 0 0 0 6px var(--accent-soft); } }
+.node-level.bump { animation: bump 0.32s var(--spring); }
+.tree-detail { transition: box-shadow 0.2s; }
+.tree-detail.preview { box-shadow: 0 0 0 1.5px var(--accent-soft), 0 10px 30px rgba(0, 0, 0, 0.12); }
+.group .btn.btn-accent:not(:disabled) { animation: readyGlow 2.4s ease-in-out infinite; }
+@keyframes readyGlow { 50% { box-shadow: 0 0 0 4px var(--accent-soft), 0 6px 18px rgba(217, 119, 87, 0.3); } }
+.btn, .pill-btn, .link-btn, .price-btn { transition: transform 0.15s var(--spring), background 0.15s, box-shadow 0.2s, opacity 0.2s; }
+@media (hover: hover) {
+  .pill-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+  .price-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(217, 119, 87, 0.4); }
+  .dock-skill:not(.locked):hover { transform: translateY(-3px) scale(1.06); }
+}
+
 /* ---------- Prestige & Fähigkeitenbaum ---------- */
 .group .btn.btn-accent { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .group .btn.btn-accent:hover:not(:disabled) { background: var(--accent-ink); }
@@ -1539,7 +1608,9 @@ button { font: inherit; color: inherit; }
   .tab-icon { display: grid; font-size: 1.05rem; }
   .tab-long { display: none; }
   .tab-short { display: inline; }
-  .tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .tabs button { font-size: 0.64rem; letter-spacing: -0.01em; }
+  .tab-label { max-width: none; overflow: visible; white-space: nowrap; }
+  .tier-hint { display: none; }
   .tabs .badge { position: absolute; top: 4px; left: calc(50% + 7px); width: 8px; min-width: 0; height: 8px; margin: 0; padding: 0; border-radius: 50%; font-size: 0; }
   .node-name { display: none; }
   .tree-branch { font-size: 0.62rem; }

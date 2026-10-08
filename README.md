@@ -70,6 +70,11 @@ Branch und Ordner `/ (root)` auswählen.
   Restzeit des 5-Stunden-Limits und Uhrzeit des Wochen-Resets per Ziehen einstellen, Tage wischen,
   Feinjustieren mit Mausrad oder Trackpad. Beide Countdowns laufen live; ist ein Limit zurück, meldet sie sich.
 - **Offline-Fortschritt** bis zu 12 Stunden; eine zurückgestellte Systemuhr wird erkannt.
+- **Hintergrund-Partikel je KI:** Funken, Pixel, Ringe, Striche oder Punkte in Farbe und Form der aktuellen KI;
+  beim Wochenlimit steigt Glut auf, bei Dark Vortex wirbeln die Teilchen ins Zentrum.
+- **Bedienung:** Gleitende Auswahl in den Tabs, kaufbare Preise als kräftige Knöpfe, Fortschrittsbalken bis zum
+  nächsten Kauf, bei Helfern direkt der Zuwachs an Schaden/s, gekaufte Upgrades animieren heraus, im
+  Fähigkeitenbaum zeigt Drüberfahren sofort die Details.
 - **Effekte:** Partikel und Schockwellen bei Treffern, ein Nachbild beim Sieg, die KI weicht vom Tap weg,
   Krits mit Blitz, weich zählende Tokens und federnde Anzeigen.
   Bei „Bewegung reduzieren“ im System bleibt alles ruhig.

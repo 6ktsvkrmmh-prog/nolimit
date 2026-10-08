@@ -1086,6 +1086,13 @@ function buyGenerator(g) {
 function buyUpgrade(u) {
   if (upgradeOwned(u) || state.tokens < upgradeCost(u)) return;
   state.tokens -= upgradeCost(u);
+  const card = $('upgrades').querySelector(`[data-id="${u.id}"]`);
+  if (card && !quiet) {
+    card.classList.add('bought');
+    card.disabled = true;
+    upgradesHoldUntil = Date.now() + 380;
+    setTimeout(() => renderUpgrades(), 400);
+  }
   if (u.key) {
     state.unlocks.add(u.key);
     toast(`<strong>${u.name} · ${u.effect}</strong><br><span class="muted">${u.toast}</span>`, u.icon);
@@ -1909,6 +1916,144 @@ const SFX = {
   flowDone: perfect => (perfect ? [784, 988, 1175, 1568] : [659, 880, 1047]).forEach((freq, i) => blip({ freq, dur: 0.2, type: 'triangle', gain: 0.035, delay: i * 0.06 })),
 };
 
+// ---------- Hintergrund-Partikel je nach KI ----------
+// Ein ruhiges Partikelfeld hinter der KI: Farbe und Form passen zur Logo-Bauart.
+// Beim Wochenlimit steigt Glut auf, bei Dark Vortex wirbeln die Teilchen ins Zentrum.
+const PARTICLE_SHAPES = {
+  spark: ['sparkle', 'starburst', 'sparkring', 'chatspark', 'eclipse', 'compass', 'flame', 'bolt'],
+  square: ['pixel', 'code', 'cube', 'gem', 'prism', 'monogram', 'shield', 'hourglass'],
+  ring: ['orb', 'planet', 'dotring', 'atom', 'eye', 'aperture', 'borromean', 'loop', 'knot', 'trefoil'],
+  line: ['voice', 'signal', 'swirl', 'spiral', 'chevron', 'pinwheel'],
+};
+const field = { list: [], hue: 20, targetHue: 20, shape: 'dot', mode: 'drift', canvas: null, ctx: null, w: 0, h: 0, last: 0 };
+
+function particleShape(family) {
+  return Object.keys(PARTICLE_SHAPES).find(k => PARTICLE_SHAPES[k].includes(family)) || 'dot';
+}
+
+function setParticleTheme(t) {
+  field.targetHue = t.isBoss ? 8 : t.vortex ? 278 : t.hue;
+  field.shape = t.isBoss ? 'dot' : particleShape(t.model.family);
+  field.mode = t.isBoss ? 'ember' : t.vortex ? 'vortex' : 'drift';
+}
+
+function newParticle(initial) {
+  const { w, h, mode } = field;
+  const p = {
+    x: Math.random() * w,
+    y: initial ? Math.random() * h : h + 10,
+    vy: -(mode === 'ember' ? randomBetween(26, 60) : randomBetween(7, 20)),
+    sway: randomBetween(4, 14),
+    phase: Math.random() * Math.PI * 2,
+    size: mode === 'ember' ? randomBetween(1.2, 3) : randomBetween(1.6, 4.2),
+    rot: Math.random() * Math.PI,
+    spin: randomBetween(-0.8, 0.8),
+    age: 0,
+    life: randomBetween(4, 9),
+    shape: field.shape,
+    hueShift: randomBetween(-18, 18),
+    // Vortex: Bahn um die Mitte
+    angle: Math.random() * Math.PI * 2,
+    radius: randomBetween(40, Math.max(w, h) * 0.6),
+  };
+  return p;
+}
+
+function drawParticle(ctx, p, x, y, alpha, light) {
+  ctx.globalAlpha = alpha;
+  const color = `hsl(${(field.hue + p.hueShift + 360) % 360}, 88%, ${light}%)`;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(p.rot);
+  const s = p.size;
+  if (p.shape === 'spark') {
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 1.8);
+    ctx.quadraticCurveTo(s * 0.25, -s * 0.25, s * 1.8, 0);
+    ctx.quadraticCurveTo(s * 0.25, s * 0.25, 0, s * 1.8);
+    ctx.quadraticCurveTo(-s * 0.25, s * 0.25, -s * 1.8, 0);
+    ctx.quadraticCurveTo(-s * 0.25, -s * 0.25, 0, -s * 1.8);
+    ctx.fill();
+  } else if (p.shape === 'square') {
+    ctx.fillRect(-s, -s, s * 2, s * 2);
+  } else if (p.shape === 'ring') {
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.4, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (p.shape === 'line') {
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-s * 1.8, 0);
+    ctx.lineTo(s * 1.8, 0);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(0, 0, s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function particleFrame(ts) {
+  requestAnimationFrame(particleFrame);
+  if (document.hidden || LOGO_REDUCED_MOTION) return;
+  const canvas = field.canvas;
+  const dt = Math.min(0.05, (ts - (field.last || ts)) / 1000);
+  field.last = ts;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (!w || !h) return;
+  if (w !== field.w || h !== field.h) {
+    field.w = w;
+    field.h = h;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    field.list = Array.from({ length: Math.round(w / 20) }, () => newParticle(true));
+  }
+  // Farbton weich zum Ziel (kürzester Weg auf dem Farbkreis)
+  const diff = ((field.targetHue - field.hue + 540) % 360) - 180;
+  field.hue = (field.hue + diff * Math.min(1, dt * 2.5) + 360) % 360;
+  const ctx = field.ctx;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const dark = document.documentElement.dataset.theme === 'dark'
+    || (document.documentElement.dataset.theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const maxAlpha = dark ? 0.55 : 0.42;
+  const light = dark ? 68 : 58;
+  field.list.forEach((p, i) => {
+    p.age += dt;
+    p.rot += p.spin * dt;
+    let x;
+    let y;
+    if (field.mode === 'vortex') {
+      p.angle += dt * (0.5 + 40 / p.radius);
+      p.radius = Math.max(8, p.radius - dt * 14);
+      x = w / 2 + Math.cos(p.angle) * p.radius;
+      y = h / 2 + Math.sin(p.angle) * p.radius * 0.8;
+    } else {
+      p.y += p.vy * dt;
+      x = p.x + Math.sin(p.age * 1.3 + p.phase) * p.sway;
+      y = p.y;
+    }
+    const fade = Math.min(1, p.age / 1.2, (p.life - p.age) / 1.5);
+    const flicker = field.mode === 'ember' ? 0.65 + 0.35 * Math.sin(p.age * 12 + p.phase) : 1;
+    if (fade > 0) drawParticle(ctx, p, x, y, maxAlpha * fade * flicker, light);
+    if (p.age >= p.life || y < -12 || (field.mode === 'vortex' && p.radius <= 8)) field.list[i] = newParticle(false);
+  });
+  ctx.globalAlpha = 1;
+}
+
+function initParticles() {
+  field.canvas = $('particles');
+  field.ctx = field.canvas.getContext('2d');
+  requestAnimationFrame(particleFrame);
+}
+
 // ---------- Effekte: Partikel, Schockwellen, Nachbild ----------
 
 const FX_MAX = 110;
@@ -2092,6 +2237,11 @@ function learnNode(id, count = 1) {
   if (!learned) return;
   mods = computeMods();
   SFX.learn();
+  const el = treeEls.get(id);
+  if (el) {
+    restartAnimation(el.btn, 'learn-pop');
+    restartAnimation(el.level, 'bump');
+  }
   render();
 }
 
@@ -3153,6 +3303,7 @@ function renderIsland(now) {
 const genEls = new Map();
 const trackSegs = [];
 let upgradesKey = '';
+let upgradesHoldUntil = 0;
 let enemyKey = '';
 let lastSpawnAnimation = 0;
 
@@ -3176,6 +3327,7 @@ function buildGenerators() {
         <span class="row-title"><span class="gen-name"></span><span class="row-count"></span></span>
         <span class="row-sub gen-desc"></span>
         <span class="row-sub gen-rate"></span>
+        <span class="buy-progress"><span></span></span>
       </span>
       <span class="price"><span class="price-qty"></span><span class="price-val"></span>${icon('token')}</span>`;
     btn.addEventListener('click', () => buyGenerator(g));
@@ -3190,6 +3342,7 @@ function buildGenerators() {
       rate: btn.querySelector('.gen-rate'),
       qty: btn.querySelector('.price-qty'),
       cost: btn.querySelector('.price-val'),
+      progress: btn.querySelector('.buy-progress span'),
     });
   }
 }
@@ -3231,9 +3384,18 @@ function renderGenerators() {
     const cost = costOf(g, n);
     el.btn.disabled = !revealed || state.tokens < cost;
     el.count.textContent = state.gens[g.id] > 0 ? `×${state.gens[g.id]}` : '';
-    el.rate.textContent = `${fmt(unitRate(g), 1)} Schaden/s pro Stück`;
+    // Was der Kauf bringt, und ab wann das nächste Upgrade für diesen Helfer kommt
+    const nextTier = TIER_OWNED.find(t => t > state.gens[g.id]);
+    const rateText = revealed ? `+${fmt(unitRate(g) * n, 1)} Schaden/s` : '';
+    const tierText = revealed && nextTier ? ` · Upgrade ab ${nextTier}` : '';
+    if (el.rate.dataset.text !== rateText + tierText) {
+      el.rate.dataset.text = rateText + tierText;
+      el.rate.innerHTML = `${rateText}<span class="tier-hint">${tierText}</span>`;
+    }
+    el.btn.title = revealed ? `${g.name}: ${fmt(unitRate(g), 1)} Schaden/s pro Stück` : '';
     el.qty.textContent = n > 1 ? `${n}× ` : '';
     el.cost.textContent = fmt(cost);
+    el.progress.style.transform = `scaleX(${clamp01(state.tokens / cost).toFixed(3)})`;
   });
 }
 
@@ -3244,7 +3406,8 @@ function renderUpgrades() {
   ];
   const key = available.map(u => u.id).join(',');
   const container = $('upgrades');
-  if (key !== upgradesKey) {
+  // Gerade gekauft: Die Karte spielt erst ihre Animation, dann wird neu sortiert.
+  if (key !== upgradesKey && Date.now() >= upgradesHoldUntil) {
     upgradesKey = key;
     container.replaceChildren(...available.map(u => {
       const btn = document.createElement('button');
@@ -3256,7 +3419,8 @@ function renderUpgrades() {
         <span class="upgrade-desc">${u.flavor}</span>
         <span class="upgrade-effect">${u.effect}</span>
         ${u.key ? '<span class="upgrade-tag">Freischaltung · bleibt dauerhaft</span>' : ''}
-        <span class="price">${fmt(upgradeCost(u))}${icon('token')}</span>`;
+        <span class="price">${fmt(upgradeCost(u))}${icon('token')}</span>
+        <span class="card-progress"><span></span></span>`;
       btn.addEventListener('click', () => buyUpgrade(u));
       return btn;
     }));
@@ -3264,8 +3428,10 @@ function renderUpgrades() {
   }
   let affordable = 0;
   for (const btn of container.children) {
+    if (btn.classList.contains('bought')) continue;
     const u = UNLOCKS.find(x => x.id === btn.dataset.id) || UPGRADES.find(x => x.id === btn.dataset.id);
     btn.disabled = state.tokens < upgradeCost(u);
+    btn.querySelector('.card-progress span').style.transform = `scaleX(${clamp01(state.tokens / upgradeCost(u)).toFixed(3)})`;
     if (!btn.disabled) affordable++;
   }
   const badge = $('upgrade-badge');
@@ -3333,6 +3499,7 @@ function renderEnemy(now) {
     if (isNew) state.discovered.add(state.enemy.kind);
     $('glyph').innerHTML = logoSvg(t.model.family, t.hue, t.seed, { halo: t.ultra || t.isBoss, letter: t.model.name[0], vortex: t.vortex });
     $('arena').style.setProperty('--hue', String(Math.round(t.hue)));
+    setParticleTheme(t);
     enemyEl.setAttribute('aria-label', `${t.name} angreifen`);
     enemyEl.classList.toggle('vortex', t.vortex);
     enemyEl.style.translate = '';
@@ -3600,6 +3767,7 @@ function renderStats(now) {
 const treeEls = new Map();
 const treeLocks = [];
 let treeSel = 'p-grad';
+let treeHover = null;
 let treeSelKey = '';
 
 function buildTree() {
@@ -3628,6 +3796,17 @@ function buildTree() {
       });
       // Doppelklick lernt direkt eine Stufe
       btn.addEventListener('dblclick', () => learnNode(node.id, 1));
+      // Maus: Drüberfahren zeigt die Details sofort
+      btn.addEventListener('pointerenter', e => {
+        if (e.pointerType !== 'mouse') return;
+        treeHover = node.id;
+        renderTree();
+      });
+      btn.addEventListener('pointerleave', () => {
+        if (!treeHover) return;
+        treeHover = null;
+        renderTree();
+      });
       treeEls.set(node.id, { cell, btn, level: cell.querySelector('.node-level') });
       parts.push(cell);
     }
@@ -3652,9 +3831,10 @@ function renderTree() {
     el.level.textContent = `${level}/${node.max}`;
     el.btn.title = `${node.name} · Stufe ${level}/${node.max}`;
   }
-  const node = treeNode(treeSel);
+  const node = treeNode(treeHover || treeSel);
   const level = treeLevel(node.id);
   const branch = TREE_BRANCHES.find(b => b.id === node.branch);
+  $('tree-detail').classList.toggle('preview', Boolean(treeHover) && treeHover !== treeSel);
   if (treeSelKey !== node.id) {
     treeSelKey = node.id;
     $('td-tile').style.setProperty('--tile', tileBg(node.colors));
@@ -3700,6 +3880,29 @@ function renderPrestige() {
   renderTree();
 }
 
+// Gleitende Auswahl-Pille hinter dem aktiven Segment (Tabs und Kaufmenge)
+function placePill(group) {
+  let pill = group.querySelector(':scope > .seg-pill');
+  if (!pill) {
+    pill = document.createElement('span');
+    pill.className = 'seg-pill';
+    group.prepend(pill);
+    group.classList.add('has-pill');
+  }
+  const active = group.querySelector('button[aria-selected="true"], button.active');
+  if (!active) return;
+  const style = pill.style;
+  const target = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  if (style.transform === target && style.width === `${active.offsetWidth}px`) return;
+  style.transform = target;
+  style.width = `${active.offsetWidth}px`;
+  style.height = `${active.offsetHeight}px`;
+}
+
+function placePills() {
+  for (const group of document.querySelectorAll('.segmented')) placePill(group);
+}
+
 function renderTabs() {
   if (!$(`tab-${state.tab}`)) state.tab = state.tab === 'achievements' ? 'missions' : 'helpers';
   for (const btn of document.querySelectorAll('[role="tab"]')) {
@@ -3707,6 +3910,7 @@ function renderTabs() {
     btn.setAttribute('aria-selected', String(active));
     $(`tab-${btn.dataset.tab}`).hidden = !active;
   }
+  placePills();
 }
 
 function render() {
@@ -3731,6 +3935,7 @@ function render() {
   for (const btn of document.querySelectorAll('[data-amount]')) {
     btn.classList.toggle('active', String(state.buyAmount) === btn.dataset.amount);
   }
+  if (state.tab === 'helpers') placePill(document.querySelector('.segmented-small'));
 
   renderEnemy(now);
   renderArenaHud(now);
@@ -4053,6 +4258,11 @@ function init() {
   render();
   moveWeakSpot(Date.now());
   requestAnimationFrame(animateCounters);
+  initParticles();
+  // Auswahl-Pillen erst ohne Animation setzen, danach gleiten sie
+  placePills();
+  requestAnimationFrame(() => document.body.classList.add('pills-ready'));
+  window.addEventListener('resize', placePills);
   setInterval(tick, TICK_MS);
 }
 
