@@ -1,0 +1,38 @@
+# Bringt jede neue Version auf GitHub Pages und prüft die App danach mit echtem Chrome.
+# Pushes über die Claude-App stoßen den Pages-Bau nicht von selbst an, deshalb fordert dieser Ablauf ihn an.
+name: App veröffentlichen
+
+on:
+  push:
+    branches: ['claude/friendly-hawking-yvuraw']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: GitHub Pages bauen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" --jq .status
+          for i in $(seq 1 36); do
+            sleep 10
+            read -r commit status < <(gh api "repos/${{ github.repository }}/pages/builds/latest" --jq '"\(.commit) \(.status)"')
+            echo "Pages: $status ($commit)"
+            [ "$status" = errored ] && exit 1
+            [ "$commit" = "${{ github.sha }}" ] && [ "$status" = built ] && exit 0
+          done
+          echo "Pages-Bau dauert zu lange"; exit 1
+      - run: npm install --no-save playwright-core@1.56.1
+      - name: App prüfen
+        run: node .github/scripts/check-app.js https://6ktsvkrmmh-prog.github.io/nolimit/ "$(command -v google-chrome || command -v chromium)"
